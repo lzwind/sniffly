@@ -2,6 +2,32 @@
 
 Analyze Claude Code logs to help you use Claude Code better.
 
+* [Website](https://sniffly.dev)
+* [Quickstart](#-quickstart)
+* [Features](#-features)
+* [Sharable dashboard](#-sharing-your-dashboard)
+
+## 📊 Features
+### Understanding your usage patterns
+<center>
+<img src="assets/features/stats.png" width="800" />
+</center>
+
+### Error breakdown
+_See where Claude Code makes mistakes so that you avoid these mistakes._
+
+<center>
+<img src="assets/features/error-type.png" width="500" />
+</center>
+
+### Message history analysis
+_Walk through all your instructions and share them with your coworkers if needed._
+
+<center>
+<img src="assets/features/command-walkthrough.png" width="1000" />
+</center>
+
+
 ## 🚀 Quickstart
 - Requirement: Python 3.10+
 
@@ -36,27 +62,6 @@ pip install -e .
 sniffly init
 ```
 
-
-## 📊 Features
-### Understanding your usage patterns
-<center>
-<img src="assets/features/stats.png" width="800" />
-</center>
-
-### Error breakdown
-_See where Claude Code makes mistakes so that you avoid these mistakes._
-
-<center>
-<img src="assets/features/error-type.png" width="500" />
-</center>
-
-### Message history analysis
-_Walk through all your instructions and share them with your coworkers if needed._
-
-<center>
-<img src="assets/features/command-walkthrough.png" width="1000" />
-</center>
-
 ## 🔧 Configuration
 
 ### Common Settings
@@ -88,6 +93,7 @@ See full [CLI Reference](docs/cli-reference.md) for all options and commands.
 
 
 ## 💡 Sharing Your Dashboard
+You can create a link to share your project's stats and instructions with your coworkers.
 
 1. Click the "📤 Share" button in your dashboard
 2. Choose privacy options:
