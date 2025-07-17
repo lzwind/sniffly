@@ -9,7 +9,6 @@ sniffly init          Start the analytics dashboard
 sniffly config        Manage configuration
 sniffly version       Show version information
 sniffly help          Show help and usage examples
-sniffly clear-cache   Clear cached data (coming soon)
 ```
 
 ## Commands
@@ -25,6 +24,7 @@ sniffly init [OPTIONS]
 **Options:**
 - `--port INTEGER` - Port to run server on (default: 8081)
 - `--no-browser` - Don't open browser automatically
+- `--clear-cache` - Clear cached data
 
 **Examples:**
 ```bash
@@ -106,16 +106,6 @@ Show detailed help and usage examples.
 sniffly help
 ```
 
----
-
-### `sniffly clear-cache`
-
-Clear the cached data. *(Coming in a future version)*
-
-```bash
-sniffly clear-cache [PROJECT]
-```
-
 ## Configuration Keys
 
 | Key | Type | Default | Description |
@@ -171,4 +161,4 @@ Settings are loaded in priority order:
 
 - **Configuration**: `~/.sniffly/config.json`
 - **Claude logs**: `~/.claude/projects/` (auto-detected)
-- **Cache**: `~/.sniffly/cache/` (future feature)
+- **Cache**: `~/.sniffly/cache/`
