@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import threading
 import time
 import webbrowser
@@ -9,7 +10,6 @@ from datetime import datetime
 from pathlib import Path
 
 import click
-import uvloop
 
 from . import __version__
 from .config import Config
@@ -18,6 +18,24 @@ from .utils.logging import setup_logging
 # Set up logging
 setup_logging()
 logger = logging.getLogger(__name__)
+
+
+def _setup_event_loop_policy():
+    """Set up optimized event loop policy based on platform"""
+    try:
+        if sys.platform == 'win32':
+            # Use winloop on Windows
+            import winloop
+            asyncio.set_event_loop_policy(winloop.EventLoopPolicy())
+            logger.debug("Using winloop event loop policy on Windows")
+        else:
+            # Use uvloop on other platforms (Linux, macOS)
+            import uvloop
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+            logger.debug("Using uvloop event loop policy")
+    except ImportError as e:
+        logger.warning(f"Failed to set optimized event loop policy: {e}")
+        logger.warning("Falling back to default asyncio event loop policy")
 
 
 @click.group()
@@ -60,8 +78,8 @@ def init(port, no_browser, clear_cache):
     auto_browser = cfg.get("auto_browser")
     should_open_browser = auto_browser and not no_browser
 
-    # Set up uvloop for better async performance
-    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    # Set up optimized event loop for better async performance
+    _setup_event_loop_policy()
 
     # Start server in background thread
     from .server import start_server_with_args
