@@ -189,7 +189,7 @@ npx eslint sniffly/static/js/
 
 ```bash
 # Clean previous builds
-rm -rf dist/ build/
+rm -rf dist/ build/ *.egg-info
 
 # Build package
 python -m build

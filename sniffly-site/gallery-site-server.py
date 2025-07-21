@@ -108,4 +108,4 @@ if __name__ == "__main__":
     print("📋 Admin panel available at http://localhost:{port}/admin")
     print("\nNote: Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and ADMIN_EMAILS environment variables for OAuth\n")
 
-    uvicorn.run(app, host="localhost", port=port, log_level="info")
+    uvicorn.run(app, host="localhost", port=port, log_level="warning", access_log=False)

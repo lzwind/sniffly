@@ -23,6 +23,7 @@ sniffly init [OPTIONS]
 
 **Options:**
 - `--port INTEGER` - Port to run server on (default: 8081)
+- `--host STRING` - Host to run server on (default: localhost)
 - `--no-browser` - Don't open browser automatically
 - `--clear-cache` - Clear cached data
 

@@ -34,7 +34,6 @@ def setup_logging(log_level: str | None = None) -> None:
 
     # Log the configuration
     logger = logging.getLogger(__name__)
-    logger.info(f"Logging configured with level: {log_level}")
 
 
 def get_logger(name: str) -> logging.Logger:

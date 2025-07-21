@@ -2,10 +2,7 @@
 
 Analyze Claude Code logs to help you use Claude Code better.
 
-* [Website](https://sniffly.dev)
-* [Quickstart](#-quickstart)
-* [Features](#-features)
-* [Sharable dashboard](#-sharing-your-dashboard)
+[Website](https://sniffly.dev) | [Quickstart](#-quickstart) | [Features](#-features) | [Sharable dashboard](#-sharing-your-dashboard)
 
 ## 📊 Features
 ### Understanding your usage patterns
@@ -45,7 +42,9 @@ uv tool install sniffly@latest
 sniffly init
 ```
 
-After running `sniffly init`, access your dashboard at http://localhost:8081 (or whichever port you choose).
+After running `sniffly init`, access your dashboard on your browser at http://localhost:8081 (or whichever host/port you choose).
+
+If you run Sniffly on a remote server, use [port forwarding](https://www.reddit.com/r/HomeNetworking/comments/i7ijiz/a_guide_to_port_forwarding/) to open the browser on your local computer.
 
 ### With pip
 
