@@ -35,7 +35,7 @@ class GlobalStatsAggregator:
         Returns:
             Dictionary containing aggregated global statistics
         """
-        logger.info(f"Starting global stats aggregation for {len(projects)} projects")
+        logger.debug(f"Starting global stats aggregation for {len(projects)} projects")
 
         # Initialize aggregated data
         # IMPORTANT: We track both all-time totals and 30-day totals separately:
@@ -184,7 +184,7 @@ class GlobalStatsAggregator:
             current_date += timedelta(days=1)
 
         # Log aggregation summary
-        logger.info(
+        logger.debug(
             f"Global stats aggregation complete: {len(projects)} projects, "
             f"{total_commands} commands, {total_input + total_output} total tokens, "
             f"${total_cost_all_time:.2f} all-time cost, ${total_cost_30_days:.2f} 30-day cost"

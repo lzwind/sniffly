@@ -45,7 +45,7 @@ async def warm_recent_projects(
             # Take only the most recent projects
             recent_dirs = log_dirs[:limit]
 
-            logger.info(f"Starting to warm {len(recent_dirs)} recent projects")
+            logger.debug(f"Starting to warm {len(recent_dirs)} recent projects")
 
             for log_dir, _ in recent_dirs:
                 log_path = str(log_dir)
@@ -69,9 +69,9 @@ async def warm_recent_projects(
 
                     # Then store in memory cache (force=True for initial warming)
                     if memory_cache.put(log_path, messages, stats, force=True):
-                        logger.info(f"Successfully warmed {log_dir.name}")
+                        logger.debug(f"Successfully warmed {log_dir.name}")
                     else:
-                        logger.info(f"Failed to cache {log_dir.name} (too large)")
+                        logger.debug(f"Failed to cache {log_dir.name} (too large)")
 
                 except Exception as e:
                     logger.info(f"Error processing {log_dir.name}: {e}")
@@ -79,7 +79,7 @@ async def warm_recent_projects(
                 # Longer delay between projects to avoid hogging resources
                 await asyncio.sleep(0.5)
 
-        logger.info(f"Completed warming {len(recent_dirs)} projects")
+        logger.debug(f"Completed warming {len(recent_dirs)} projects")
 
     except Exception as e:
         logger.info(f"Error in warm_recent_projects: {e}")

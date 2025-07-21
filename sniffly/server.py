@@ -81,7 +81,7 @@ cache_warm_on_startup = config.get("cache_warm_on_startup")
 enable_background_processing = config.get("enable_background_processing")
 
 memory_cache = MemoryCache(max_projects=max_projects, max_mb_per_project=max_mb_per_project)
-logger.info(f"Memory cache initialized: {max_projects} projects, {max_mb_per_project}MB per project")
+logger.debug(f"Memory cache initialized: {max_projects} projects, max {max_mb_per_project}MB per project")
 
 # Get base directories
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1197,7 +1197,7 @@ def start_server_with_args(port=8081, host="localhost"):
     """Start the server with specified arguments"""
     import uvicorn
 
-    uvicorn.run(app, host=host, port=port)
+    uvicorn.run(app, host=host, port=port, log_level="warning", access_log=False)
 
 
 if __name__ == "__main__":
