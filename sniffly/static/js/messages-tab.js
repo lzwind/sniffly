@@ -815,7 +815,14 @@ async function exportMessagesToMarkdown() {
   lines.push('---');
   lines.push('');
 
-  filteredMessages.forEach(msg => {
+  // Sort messages by timestamp in ascending order (oldest first) for export
+  const sortedMessages = [...filteredMessages].sort((a, b) => {
+    const timeA = new Date(a.timestamp || 0);
+    const timeB = new Date(b.timestamp || 0);
+    return timeA - timeB;
+  });
+
+  sortedMessages.forEach(msg => {
     const ts = formatTimestamp(msg.timestamp);
     const speaker = roleLabel(msg);
     const content = (msg.content || '*(empty)*').trim();

@@ -33,12 +33,12 @@ Make sure you have `uv` installed! https://github.com/astral-sh/uv
 
 ```bash
 # One-time execution (no installation needed)
-uvx sniffly@latest init
+uvx sniffly-iceleaf916@latest init
 ```
 
 ```bash
 # Install the package
-uv tool install sniffly@latest
+uv tool install sniffly-iceleaf916@latest
 sniffly init
 ```
 
@@ -49,7 +49,7 @@ If you run Sniffly on a remote server, use [port forwarding](https://www.reddit.
 ### With pip
 
 ```bash
-pip install sniffly
+pip install sniffly-iceleaf916
 sniffly init
 ```
 

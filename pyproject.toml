@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "sniffly"
-version = "0.1.5"
+name = "sniffly-iceleaf916"
+version = "0.2.1"
 description = "Claude Code Analytics Dashboard"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
-    { name = "Chip Huyen", email = "hi@huyenchip.com" },
+    { name = "iceleaf916", email = "iceleaf916@gmail.com" },
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -42,8 +42,8 @@ sniffly = "sniffly.cli:cli"
 [project.urls]
 Homepage = "https://sniffly.dev"
 Documentation = "https://sniffly.dev/docs"
-Repository = "https://github.com/chiphuyen/sniffly"
-Issues = "https://github.com/chiphuyen/sniffly/issues"
+Repository = "https://github.com/iceleaf916/sniffly"
+Issues = "https://github.com/iceleaf916/sniffly/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["sniffly"]
