@@ -13,6 +13,35 @@ let messagesPerPage = DEFAULT_MESSAGES_PER_PAGE;
 let sortColumn = 'timestamp';
 let sortDirection = 'desc';
 
+/** Reload allMessages from backend with current date filter, then re-apply client-side filters */
+async function reloadMessagesFromBackend() {
+  window.messagesFullyLoaded = false;
+  window.loadingMoreMessages = false;
+  allMessages = [];
+  window.allMessages = [];
+  filteredMessages = [];
+  currentPage = 1;
+
+  const tbody = document.getElementById('messages-tbody');
+  if (tbody) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;">Loading...</td></tr>';
+  }
+
+  try {
+    const response = await fetch(buildMessagesApiUrl());
+    if (response.ok) {
+      const data = await response.json();
+      const messageArray = Array.isArray(data) ? data : data.messages;
+      allMessages = messageArray;
+      window.allMessages = messageArray;
+      window.messagesFullyLoaded = true;
+      applyFilters();
+    }
+  } catch (error) {
+    console.error('Failed to reload messages from backend:', error);
+  }
+}
+
 // Initialize filters
 function initializeFilters() {
   // Type filter - use all types from statistics, not just from loaded messages
@@ -26,8 +55,7 @@ function initializeFilters() {
   if (statistics && statistics.overview && statistics.overview.message_types) {
     // Get all message types from statistics and sort them
     const allTypes = Object.keys(statistics.overview.message_types).sort();
-    console.log(`Loading ${allTypes.length} message types from statistics:`, allTypes);
-    
+
     // Add tool_result as a special type if there are any messages with tool results
     const hasToolResults = allMessages.some(m => m.has_tool_result);
     if (hasToolResults && !allTypes.includes('tool_result')) {
@@ -47,7 +75,6 @@ function initializeFilters() {
     });
   } else {
     // Fallback to old method if statistics not available
-    console.log('Statistics not available for types, falling back to message-based type list');
     const types = new Set();
     allMessages.forEach(m => {
       if (m.has_tool_result) {
@@ -108,6 +135,19 @@ function initializeFilters() {
     currentPage = 1;
     displayMessages();
   });
+
+  // Initialize date filter (only on first call — don't override user selections)
+  if (!window.dateFilterInitialized) {
+    window.dateFilterInitialized = true;
+    // Default to "today"
+    const range = getDateRangeForPreset('today');
+    dateFilterStart = range.start;
+    dateFilterEnd = range.end;
+    syncCustomDateInputs(range);
+    document.querySelectorAll('.date-preset-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.preset === 'today');
+    });
+  }
 }
 
 // Apply filters
@@ -116,53 +156,46 @@ async function applyFilters() {
   const errorFilter = document.getElementById('error-filter').value;
   const toolFilter = document.getElementById('tool-filter').value;
   const searchTerm = document.getElementById('search-input').value.toLowerCase();
-    
-  // Check if we have any active filters
-  const hasActiveFilters = typeFilter || errorFilter || toolFilter || searchTerm;
-    
+
+  // Check if we have any active filters (including date)
+  const hasActiveFilters = typeFilter || errorFilter || toolFilter || searchTerm || hasDateFilter();
+
   // If user is searching and we haven't loaded all messages, load them now
   if (searchTerm && !window.messagesFullyLoaded && !window.loadingMoreMessages) {
-    console.log('🔍 Search activated - loading all messages...');
     await loadMoreMessages();
   }
-    
+
   // For filters, we need all messages loaded
   if (hasActiveFilters && !window.messagesFullyLoaded && !window.loadingMoreMessages) {
-    console.log('🔍 Filters activated - loading all messages...');
     await loadMoreMessages();
   }
-    
+
   filteredMessages = allMessages.filter(message => {
     // Type filter - handle tool_result as a special case
     if (typeFilter) {
       if (typeFilter === 'tool_result') {
-        // Show only messages with tool results
         if (!message.has_tool_result) {return false;}
       } else {
-        // For other types, check the actual type
-        // Task messages can have tool results, so don't exclude them
         if (message.type !== typeFilter) {return false;}
-        // Only exclude tool results if it's not a task message
         if (message.type !== 'task' && message.has_tool_result) {return false;}
       }
     }
-        
+
     // Error filter
     if (errorFilter) {
       if (errorFilter === 'errors-only' && !message.error) {return false;}
       if (errorFilter === 'no-errors' && message.error) {return false;}
     }
-        
+
     // Tool filter
     if (toolFilter && !message.tools.some(t => t.name === toolFilter)) {return false;}
-        
-        
+
     // Search filter
     if (searchTerm && !message.content.toLowerCase().includes(searchTerm)) {return false;}
-        
+
     return true;
   });
-    
+
   currentPage = 1;
   sortMessages();
   displayMessages();
@@ -185,7 +218,6 @@ function sortMessages() {
 async function sortTable(column) {
   // Load all messages if sorting and not fully loaded
   if (!window.messagesFullyLoaded && !window.loadingMoreMessages) {
-    console.log('📊 Sorting activated - loading all messages...');
     await loadMoreMessages();
   }
   
@@ -237,7 +269,8 @@ function displayMessages() {
   const hasActiveFilters = document.getElementById('type-filter').value ||
                            document.getElementById('error-filter').value ||
                            document.getElementById('tool-filter').value ||
-                           document.getElementById('search-input').value;
+                           document.getElementById('search-input').value ||
+                           hasDateFilter();
     
   let countHTML;
     
@@ -327,7 +360,8 @@ function displayPagination() {
     const hasActiveFilters = document.getElementById('type-filter').value ||
                                document.getElementById('error-filter').value ||
                                document.getElementById('tool-filter').value ||
-                               document.getElementById('search-input').value;
+                               document.getElementById('search-input').value ||
+                               hasDateFilter();
         
     if (!hasActiveFilters) {
       totalItems = window.totalMessageCount;
@@ -362,7 +396,8 @@ async function goToPage(page) {
   const hasActiveFilters = document.getElementById('type-filter').value ||
                            document.getElementById('error-filter').value ||
                            document.getElementById('tool-filter').value ||
-                           document.getElementById('search-input').value;
+                           document.getElementById('search-input').value ||
+                           hasDateFilter();
     
   let totalItems = filteredMessages.length;
   if (isMessagesTab && window.totalMessageCount && !window.messagesFullyLoaded && !hasActiveFilters) {
@@ -377,7 +412,6 @@ async function goToPage(page) {
   const requestedMessageIndex = (page - 1) * messagesPerPage;
   if (isMessagesTab && requestedMessageIndex >= allMessages.length && !window.messagesFullyLoaded) {
     // Need to load all messages to access this page
-    console.log(`📥 Loading all messages to access page ${page}...`);
         
     // Show loading state
     const tbody = document.getElementById('messages-tbody');
@@ -414,25 +448,22 @@ function checkLoadMore() {
 // Load more messages
 async function loadMoreMessages() {
   if (window.loadingMoreMessages || window.messagesFullyLoaded) {return;}
-    
+
   window.loadingMoreMessages = true;
-  console.log('📥 Loading more messages...');
-    
+
   try {
-    // Load all remaining messages
-    const response = await fetch('/api/messages');
+    // Load all remaining messages with current date filter
+    const response = await fetch(buildMessagesApiUrl());
     if (response.ok) {
       const messages = await response.json();
       const messageArray = Array.isArray(messages) ? messages : messages.messages;
-            
+
       allMessages = messageArray;
       window.allMessages = messageArray;
       window.messagesFullyLoaded = true;
-            
+
       // Re-apply filters to include new messages
       applyFilters();
-            
-      console.log(`✅ All messages loaded: ${messageArray.length} total`);
     }
   } catch (error) {
     console.error('Failed to load more messages:', error);
@@ -480,7 +511,8 @@ function showMessageDetail(index) {
   const hasActiveFilters = document.getElementById('type-filter').value ||
                            document.getElementById('error-filter').value ||
                            document.getElementById('tool-filter').value ||
-                           document.getElementById('search-input').value;
+                           document.getElementById('search-input').value ||
+                           hasDateFilter();
   
   if (!hasActiveFilters) {
     // No filters active, so the filtered row number IS the original index
@@ -604,7 +636,6 @@ async function navigateMessage(direction) {
   
   // Check if we need to load all messages first
   if (!window.messagesFullyLoaded && newIndex >= allMessages.length) {
-    console.log('📥 Loading all messages for navigation...');
     await loadMoreMessages();
   }
   
@@ -724,7 +755,8 @@ async function goToMessageRow() {
   const hasActiveFilters = document.getElementById('type-filter').value ||
                            document.getElementById('error-filter').value ||
                            document.getElementById('tool-filter').value ||
-                           document.getElementById('search-input').value;
+                           document.getElementById('search-input').value ||
+                           hasDateFilter();
     
   let totalItems = filteredMessages.length;
   if (isMessagesTab && window.totalMessageCount && !window.messagesFullyLoaded && !hasActiveFilters) {
@@ -758,7 +790,6 @@ async function goToMessageRow() {
 async function exportMessagesToCSV() {
   // Ensure all messages are loaded before exporting
   if (!window.messagesFullyLoaded && !window.loadingMoreMessages) {
-    console.log('📥 Loading all messages for export...');
     await loadMoreMessages();
   }
   const headers = ['Type', 'Message', 'Timestamp', 'Model', 'Tokens (Input/Output)', 'Tools'];

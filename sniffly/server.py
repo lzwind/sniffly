@@ -17,12 +17,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import importlib.metadata
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from sniffly.api.messages import get_messages_summary, get_paginated_messages
+from sniffly.api.messages import filter_messages_by_time, get_messages_summary, get_paginated_messages
 from sniffly.config import Config
 from sniffly.core.processor import ClaudeLogProcessor
 from sniffly.utils.cache_warmer import warm_recent_projects
@@ -462,14 +462,32 @@ async def get_dashboard_data(timezone_offset: int = 0):
 
 # Messages endpoint - process or get cached
 @app.get("/api/messages")
-async def get_messages(limit: int | None = None, timezone_offset: int = 0):
-    """Get messages for the current project"""
+async def get_messages(
+    limit: int | None = None,
+    timezone_offset: int = 0,
+    start_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    end_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+):
+    """Get messages for the current project.
+
+    Args:
+        limit: Optional max number of messages to return
+        timezone_offset: Local UTC offset in minutes (e.g. 480 for UTC+8)
+        start_date: Filter start date in YYYY-MM-DD (local time), inclusive
+        end_date: Filter end date in YYYY-MM-DD (local time), inclusive
+    """
     import time
 
     start_time = time.time()
 
     if not current_log_path:
         raise HTTPException(status_code=400, detail="No project selected")
+
+    # Validate date semantics early (format already checked by Query pattern)
+    try:
+        filter_messages_by_time([], start_date, end_date, timezone_offset)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # Check memory cache first (L1)
     memory_result = memory_cache.get(current_log_path)
@@ -478,7 +496,7 @@ async def get_messages(limit: int | None = None, timezone_offset: int = 0):
         elapsed_ms = (time.time() - start_time) * 1000
         logger.debug(f"Memory cache hit - {elapsed_ms:.2f}ms")
 
-        # Apply limit if requested
+        messages = filter_messages_by_time(messages, start_date, end_date, timezone_offset)
         if limit and limit < len(messages):
             return messages[:limit]
         return messages
@@ -486,14 +504,13 @@ async def get_messages(limit: int | None = None, timezone_offset: int = 0):
     # Check file cache next (L2)
     cached_messages = cache_service.get_cached_messages(current_log_path)
     if cached_messages and not cache_service.has_changes(current_log_path):
-        # Also get stats to store in memory cache
         cached_stats = cache_service.get_cached_stats(current_log_path)
         if cached_stats:
-            # Promote to memory cache
             memory_cache.put(current_log_path, cached_messages, cached_stats)
             elapsed_ms = (time.time() - start_time) * 1000
             logger.debug(f"File cache hit - {elapsed_ms:.2f}ms")
-        # Apply limit if requested
+
+        cached_messages = filter_messages_by_time(cached_messages, start_date, end_date, timezone_offset)
         if limit and limit < len(cached_messages):
             return cached_messages[:limit]
         return cached_messages
@@ -505,17 +522,15 @@ async def get_messages(limit: int | None = None, timezone_offset: int = 0):
         messages, statistics = processor.process_logs(timezone_offset_minutes=timezone_offset)
         process_time = (time.time() - process_start) * 1000
 
-        # Cache the results
+        # Cache the full unfiltered results
         cache_service.save_cached_stats(current_log_path, statistics)
         cache_service.save_cached_messages(current_log_path, messages)
-
-        # Also store in memory cache
         memory_cache.put(current_log_path, messages, statistics)
 
         total_time = (time.time() - start_time) * 1000
         logger.debug(f"Cache miss - Total: {total_time:.2f}ms (Processing: {process_time:.2f}ms)")
 
-        # Apply limit if requested
+        messages = filter_messages_by_time(messages, start_date, end_date, timezone_offset)
         if limit and limit < len(messages):
             return messages[:limit]
         return messages

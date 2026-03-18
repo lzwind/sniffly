@@ -24,6 +24,7 @@
     <script src="/static/js/jsonl-viewer.js"></script>
     <script src="/static/js/message-modal.js"></script>
     <script src="/static/js/commands-tab.js"></script>
+    <script src="/static/js/messages-date-filter.js"></script>
     <script src="/static/js/messages-tab.js"></script>
     <script src="/static/js/memory-monitor.js"></script>
     <script src="/static/js/project-detector.js"></script>
@@ -322,6 +323,24 @@
                     <div>
                         <div id="message-count" class="table-summary"></div>
                     </div>
+
+                <!-- Date Range Filter Row -->
+                <div class="date-filter-row">
+                    <span class="date-filter-label">Time:</span>
+                    <div class="date-preset-buttons">
+                        <button class="date-preset-btn" data-preset="today" onclick="setDatePreset('today')">Today</button>
+                        <button class="date-preset-btn" data-preset="yesterday" onclick="setDatePreset('yesterday')">Yesterday</button>
+                        <button class="date-preset-btn" data-preset="7days" onclick="setDatePreset('7days')">Last 7 Days</button>
+                        <button class="date-preset-btn" data-preset="30days" onclick="setDatePreset('30days')">Last 30 Days</button>
+                        <button class="date-preset-btn" data-preset="all" onclick="setDatePreset('all')">All</button>
+                    </div>
+                    <div class="date-custom-inputs">
+                        <input type="date" id="date-filter-start" onchange="applyCustomDateFilter()" title="Start date">
+                        <span class="date-range-sep">—</span>
+                        <input type="date" id="date-filter-end" onchange="applyCustomDateFilter()" title="End date">
+                    </div>
+                </div>
+
                 <div class="table-controls">
                     <div class="filter-group">
                         <select id="type-filter">
@@ -527,56 +546,53 @@
         // Tab switching functionality
         // Load messages when Messages tab is activated
         async function loadMessagesForTab() {
-            // Check if we already have enough messages loaded
-            if (window.allMessages && window.allMessages.length >= Math.min(1000, window.totalMessageCount)) {
-                // Don't load more if we already have the initial batch
-                // But don't mark as fully loaded unless we have all messages
-                if (window.allMessages.length >= window.totalMessageCount) {
-                    window.messagesFullyLoaded = true;
-                }
+            // Check if we already have enough messages loaded for the current date range
+            if (window.messagesFullyLoaded) {
                 return;
             }
-            
+
             console.log('📥 Loading messages for Messages tab...');
-            
+
             // Show loading indicator
             const messageCountEl = document.getElementById('message-count');
             const originalText = messageCountEl ? messageCountEl.textContent : '';
             if (messageCountEl) {
                 messageCountEl.textContent = 'Loading messages...';
             }
-            
+
             try {
                 const loadStart = performance.now();
-                
-                // Load more messages (configurable initial load)
-                const limit = Math.min(window.messagesInitialLoad || 1000, window.totalMessageCount);
-                const response = await fetch(`${apiBase}/messages?limit=${limit}`);
-                
+
+                // Use buildMessagesApiUrl if available (respects current date filter)
+                const url = window.buildMessagesApiUrl
+                    ? window.buildMessagesApiUrl()
+                    : `${apiBase}/messages`;
+                const response = await fetch(url);
+
                 if (response.ok) {
                     const messages = await response.json();
-                    
+
                     // Handle both array response and paginated response
                     const messageArray = Array.isArray(messages) ? messages : messages.messages;
-                    
+
                     allMessages = messageArray;
                     window.allMessages = messageArray;
-                    window.messagesFullyLoaded = messageArray.length >= window.totalMessageCount;
-                    
+                    window.messagesFullyLoaded = true;
+
                     // Re-initialize filters with more data
                     initializeFilters();
                     applyFilters();
-                    
+
                     const loadTime = performance.now() - loadStart;
                     console.log(`✅ Messages loaded: ${loadTime.toFixed(2)}ms (${messageArray.length} messages, ${JSON.stringify(messageArray).length / 1024} KB)`);
-                    
+
                     // Memory snapshot after messages load
                     if (window.memoryMonitorEnabled) {
                         MemoryMonitor.snapshot('afterMessages');
                         console.log('📊 Memory after messages load:');
                         MemoryMonitor.printReport();
                     }
-                    
+
                     // Don't update message count here - let displayMessages() handle it
                     // displayMessages() will be called by applyFilters() and has the correct logic
                 }
