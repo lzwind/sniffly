@@ -786,41 +786,54 @@ async function goToMessageRow() {
   input.value = '';
 }
 
-// Export messages to CSV
-async function exportMessagesToCSV() {
+// Export messages to Markdown (chat-style)
+async function exportMessagesToMarkdown() {
   // Ensure all messages are loaded before exporting
   if (!window.messagesFullyLoaded && !window.loadingMoreMessages) {
     await loadMoreMessages();
   }
-  const headers = ['Type', 'Message', 'Timestamp', 'Model', 'Tokens (Input/Output)', 'Tools'];
-    
-  // Prepare data for export
-  const data = filteredMessages.map(msg => {
-    const tools = msg.tools.map(t => t.name).join('; ');
-    const tokens = `${msg.tokens.input}/${msg.tokens.output}`;
-    let msgType = msg.type;
-    if (msg.type === 'task' && msg.has_tool_result) {
-      msgType = 'task (tool result)';
-    } else if (msg.has_tool_result) {
-      msgType = 'tool result';
-    } else if (msg.type === 'compact_summary') {
-      msgType = 'compact summary';
-    }
-        
-    return [
-      msgType,
-      msg.content || '(empty)',
-      formatTimestamp(msg.timestamp),
-      msg.model || '-',
-      tokens,
-      tools || '-'
-    ];
+
+  const exportedAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
+  const projectName = (window.statistics?.overview?.project_name) || 'Unknown Project';
+
+  // Role label & emoji per message type
+  function roleLabel(msg) {
+    if (msg.type === 'human' || msg.type === 'task') return '👤 User';
+    if (msg.type === 'assistant') return '🤖 Assistant';
+    if (msg.type === 'compact_summary') return '📋 Summary';
+    if (msg.has_tool_result) return '🔧 Tool Result';
+    return `💬 ${msg.type || 'unknown'}`;
+  }
+
+  const lines = [];
+
+  // Document header
+  lines.push(`# ${projectName} — Chat Export`);
+  lines.push('');
+  lines.push(`> Exported: ${exportedAt} · ${filteredMessages.length} messages`);
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+
+  filteredMessages.forEach(msg => {
+    const ts = formatTimestamp(msg.timestamp);
+    const speaker = roleLabel(msg);
+    const content = (msg.content || '*(empty)*').trim();
+
+    lines.push(`### ${speaker}`);
+    lines.push(`*${ts}*`);
+    lines.push('');
+    lines.push(content);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
   });
-    
-  const csvContent = exportToCSV(data, headers);
-  const timestamp = new Date().toISOString().split('T')[0];
-  downloadCSV(csvContent, `messages_export_${timestamp}.csv`);
+
+  const mdContent = lines.join('\n');
+  const dateStr = new Date().toISOString().split('T')[0];
+  downloadMarkdown(mdContent, `messages_export_${dateStr}.md`);
 }
+
 
 // Export public functions to make them accessible globally
 window.initializeFilters = initializeFilters;
@@ -833,4 +846,4 @@ window.updateMessagesPerPage = updateMessagesPerPage;
 window.showMessageDetail = showMessageDetail;
 window.navigateMessage = navigateMessage;
 window.goToMessageRow = goToMessageRow;
-window.exportMessagesToCSV = exportMessagesToCSV;
+window.exportMessagesToMarkdown = exportMessagesToMarkdown;

@@ -352,7 +352,8 @@ if (typeof module !== 'undefined' && module.exports) {
     sortTableData,
     goToRowInPaginatedTable,
     exportToCSV,
-    downloadCSV
+    downloadCSV,
+    downloadMarkdown
   };
 }
 
@@ -378,7 +379,7 @@ function exportToCSV(data, headers) {
 function downloadCSV(csvContent, filename) {
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
-    
+
   if (navigator.msSaveBlob) { // IE 10+
     navigator.msSaveBlob(blob, filename);
   } else {
@@ -389,4 +390,16 @@ function downloadCSV(csvContent, filename) {
     link.click();
     document.body.removeChild(link);
   }
+}
+
+// Download Markdown file
+function downloadMarkdown(content, filename) {
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
