@@ -48,6 +48,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+.build-venv/
 develop-eggs/
 dist/
 downloads/
