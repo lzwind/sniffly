@@ -808,9 +808,27 @@ async function exportMessagesToMarkdown() {
   const lines = [];
 
   // Document header
-  lines.push(`# ${projectName} — Chat Export`);
+  lines.push(`# ${projectName} — 对话导出`);
   lines.push('');
-  lines.push(`> Exported: ${exportedAt} · ${filteredMessages.length} messages`);
+  lines.push(`导出时间：${exportedAt}`);
+  lines.push(`消息数：${filteredMessages.length}`);
+
+  // Add project info if available
+  const overview = window.statistics?.overview;
+  if (overview) {
+    if (overview.project_path) {
+      lines.push(`项目：${overview.project_path}`);
+    }
+    if (overview.sessions) {
+      lines.push(`会话数：${overview.sessions}`);
+    }
+    if (overview.date_range?.start && overview.date_range?.end) {
+      const startDate = new Date(overview.date_range.start).toISOString().substring(0, 10);
+      const endDate = new Date(overview.date_range.end).toISOString().substring(0, 10);
+      lines.push(`日期范围：${startDate} 至 ${endDate}`);
+    }
+  }
+
   lines.push('');
   lines.push('---');
   lines.push('');
@@ -838,7 +856,9 @@ async function exportMessagesToMarkdown() {
 
   const mdContent = lines.join('\n');
   const dateStr = new Date().toISOString().split('T')[0];
-  downloadMarkdown(mdContent, `messages_export_${dateStr}.md`);
+  // Sanitize project name for filename (replace special chars with underscores)
+  const safeProjectName = projectName.replace(/[^a-zA-Z0-9_-]/g, '_');
+  downloadMarkdown(mdContent, `${safeProjectName}_messages_${dateStr}.md`);
 }
 
 
