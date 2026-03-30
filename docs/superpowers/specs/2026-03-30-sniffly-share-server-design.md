@@ -31,24 +31,24 @@
 
 ```mermaid
 graph TB
-    subgraph "客户端 (sniffly-iceleaf916)"
+    subgraph "Client sniffly-iceleaf916"
         A[Dashboard UI] --> B[Share Modal]
         B --> C[Server Selector]
         B --> D[Auth Handler]
-        C --> E[LocalStorage<br/>缓存历史服务器]
+        C --> E["LocalStorage"]
         D --> F[Login Modal]
     end
 
-    subgraph "服务端 (sniffly-server)"
-        G[FastAPI App] --> H[Auth API<br/>POST /auth/login]
-        G --> I[Share API<br/>POST /api/shares]
-        G --> J[Gallery API<br/>GET /api/gallery]
-        G --> K[Share Page<br/>GET /share/{id}]
+    subgraph "Server sniffly-server"
+        G[FastAPI App] --> H["Auth API POST auth/login"]
+        G --> I["Share API POST api/shares"]
+        G --> J["Gallery API GET api/gallery"]
+        G --> K["Share Page GET share id"]
     end
 
-    subgraph "存储层"
-        L[(MongoDB<br/>分享数据)]
-        M[(Redis<br/>Session/Token)]
+    subgraph "Storage"
+        L[(MongoDB)]
+        M[(Redis)]
     end
 
     B -.->|HTTP API| G
