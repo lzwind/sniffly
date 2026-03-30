@@ -30,8 +30,9 @@
 ## 2. 系统架构
 
 ```mermaid
-graph TB
-    subgraph "Client sniffly-iceleaf916"
+flowchart TB
+    subgraph Client["客户端 sniffly-iceleaf916"]
+        direction TB
         A[Dashboard UI] --> B[Share Modal]
         B --> C[Server Selector]
         B --> D[Auth Handler]
@@ -39,22 +40,23 @@ graph TB
         D --> F[Login Modal]
     end
 
-    subgraph "Server sniffly-server"
-        G[FastAPI App] --> H["Auth API POST auth/login"]
-        G --> I["Share API POST api/shares"]
-        G --> J["Gallery API GET api/gallery"]
-        G --> K["Share Page GET share id"]
+    subgraph Server["服务端 sniffly-server"]
+        direction TB
+        G[FastAPI App] --> H["Auth API"]
+        G --> I["Share API"]
+        G --> J["Gallery API"]
+        G --> K["Share Page"]
     end
 
-    subgraph "Storage"
+    subgraph Storage["存储层"]
+        direction TB
         L[(MongoDB)]
         M[(Redis)]
     end
 
-    B -.->|HTTP API| G
-    D -.->|JWT Token| G
-    G --> L
-    G --> M
+    Client -.->|HTTP API| Server
+    Client -.->|JWT Token| Server
+    Server --> Storage
 ```
 
 ---
