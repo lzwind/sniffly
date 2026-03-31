@@ -1,0 +1,31 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}用户管理{% endblock %}
+{% block page_title %}用户管理{% endblock %}
+
+{% block content %}
+<div class="page-actions">
+    <button type="button" class="btn btn-primary" onclick="showCreateUserModal()">
+        + 创建用户
+    </button>
+</div>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>用户名</th>
+            <th>创建时间</th>
+            <th>状态</th>
+            <th>分享数</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody id="users-tbody">
+        <tr>
+            <td colspan="5" class="loading-state">加载中...</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="pagination" id="users-pagination"></div>
+{% endblock %}
