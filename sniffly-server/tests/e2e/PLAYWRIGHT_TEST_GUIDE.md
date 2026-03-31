@@ -61,81 +61,26 @@ uvicorn app.main:app --host 0.0.0.0 --port 8080
 
 ## 运行测试
 
-### 方式一：直接运行 Python 脚本（推荐，无需 pytest）
+### 方式一：运行测试用例集（推荐）
+
+测试用例集位于 `tests/e2e/test_suite.py`，包含所有场景的完整验证。
 
 ```bash
 source /Users/iceleaf/Workspaces/tech-documents/.venv/bin/activate
 
-python3 << 'EOF'
-from playwright.sync_api import sync_playwright
+cd /Users/iceleaf/Workspaces/third-party/sniffly/sniffly-server
 
-chrome_path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-BASE_URL = 'http://localhost:8080'
+# 标准运行（无头模式）
+python tests/e2e/test_suite.py
 
-with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True, executable_path=chrome_path)
-    context = browser.new_context(viewport={'width': 1280, 'height': 720})
-    page = context.new_page()
+# 显示浏览器窗口（调试用）
+HEADLESS=false python tests/e2e/test_suite.py
 
-    # 1. 首页
-    page.goto(f'{BASE_URL}/')
-    page.wait_for_load_state('networkidle')
-    print('1. 首页标题:', page.title())
-
-    # 2. 健康检查
-    resp = page.request.get(f'{BASE_URL}/health')
-    print('2. 健康检查:', resp.json())
-
-    # 3. 登录
-    page.goto(f'{BASE_URL}/login')
-    page.fill('#username', 'admin')
-    page.fill('#password', 'admin')
-    page.click('button[type="submit"]')
-    page.wait_for_url('**/admin', timeout=8000)
-    print('3. 登录成功, URL:', page.url)
-
-    # 4. 管理后台概览
-    page.goto(f'{BASE_URL}/admin')
-    page.wait_for_selector('.sidebar', timeout=5000)
-    print('4. 概览页侧边栏已加载')
-
-    # 5. 用户管理页
-    page.goto(f'{BASE_URL}/admin/users')
-    page.wait_for_selector('#users-tbody', timeout=5000)
-    page.wait_for_selector('td', timeout=8000)
-    print('5. 用户管理页已加载')
-
-    # 6. 分享管理页
-    page.goto(f'{BASE_URL}/admin/shares')
-    page.wait_for_selector('#shares-tbody', timeout=5000)
-    print('6. 分享管理页已加载')
-
-    # 7. 退出登录
-    page.goto(f'{BASE_URL}/admin')
-    page.wait_for_selector('.sidebar', timeout=5000)
-    page.click('a[href="/auth/logout"]')
-    page.wait_for_url('**/', timeout=5000)
-    print('7. 退出成功, 当前 URL:', page.url)
-    print('   退出后 cookies:', [c['name'] for c in context.cookies()])
-
-    # 8. 退出后访问 /admin 应重定向到 /login
-    page.goto(f'{BASE_URL}/admin')
-    page.wait_for_url('**/login', timeout=5000)
-    print('8. 退出后访问 /admin 重定向到:', page.url)
-
-    browser.close()
-    print()
-    print('=== 全部 E2E 测试通过 ===')
-EOF
-```
-
-### 方式二：使用 pytest-playwright
-
-```bash
-source /Users/iceleaf/Workspaces/tech-documents/.venv/bin/activate
-uv pip install pytest-playwright
-
-BASE_URL=http://localhost:8080 pytest sniffly-server/tests/e2e/test_playwright.py -v
+# 自定义配置
+BASE_URL=http://localhost:8080 \\
+ADMIN_USERNAME=admin \\
+ADMIN_PASSWORD=admin \\
+python tests/e2e/test_suite.py
 ```
 
 ### 调试模式（显示浏览器窗口）
