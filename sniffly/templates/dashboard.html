@@ -21,6 +21,8 @@
     <script src="/static/js/date-range-picker.js"></script>
     <script src="/static/js/charts.js"></script>
     <script src="/static/js/export.js"></script>
+    <script src="/static/js/share-storage.js"></script>
+    <script src="/static/js/share-client.js"></script>
     <script src="/static/js/jsonl-viewer.js"></script>
     <script src="/static/js/message-modal.js"></script>
     <script src="/static/js/commands-tab.js"></script>
@@ -1171,7 +1173,7 @@
             const shareButton = document.getElementById('share-button');
             shareButton.disabled = true;
             shareButton.textContent = 'Creating link...';
-            
+
             try {
                 // Show share options modal
                 const shareOptions = await showShareOptionsModal();
@@ -1180,29 +1182,43 @@
                     shareButton.textContent = '📤 Share';
                     return; // User cancelled
                 }
-                
+
                 // Extract chart configurations instead of PNG images
                 const charts = ExportModule.getChartConfigurations();
-                
-                // Create share link
-                const response = await fetch('/api/share', {
+
+                // Generate share_id
+                const shareId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+
+                // Create share link on the selected server with JWT token
+                const response = await fetch(`${shareOptions.serverUrl}/api/shares`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ 
-                        charts,
-                        project_name: shareOptions.projectName,
-                        make_public: shareOptions.makePublic,
-                        include_commands: shareOptions.includeCommands,
-                        statistics: window.statistics,
-                        user_commands: shareOptions.includeCommands ? (window.userCommands || []) : []
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${shareOptions.token}`
+                    },
+                    body: JSON.stringify({
+                        share_id: shareId,
+                        data: {
+                            statistics: window.statistics,
+                            charts: charts,
+                            user_commands: shareOptions.includeCommands ? (window.userCommands || []) : [],
+                            version: '0.1.5',
+                            is_public: shareOptions.makePublic,
+                            project_name: shareOptions.projectName
+                        }
                     })
                 });
-                
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || 'Failed to create share');
+                }
+
                 const data = await response.json();
-                
+
                 // Show share modal with link (no expiration date)
                 showShareModal(data.url, data.is_public);
-                
+
             } catch (error) {
                 alert('Failed to create share link: ' + error.message);
             } finally {
@@ -1215,10 +1231,16 @@
         async function showShareOptionsModal() {
             return new Promise((resolve) => {
                 // Get the default project name
-                const defaultProjectName = window.statistics?.overview?.log_dir_name || 
-                                         window.statistics?.overview?.project_name || 
+                const defaultProjectName = window.statistics?.overview?.log_dir_name ||
+                                         window.statistics?.overview?.project_name ||
                                          'Untitled Project';
-                
+
+                // Get saved servers from LocalStorage
+                const savedServers = JSON.parse(localStorage.getItem('sniffly_servers') || '[]');
+                const serverOptions = savedServers.map((server, index) =>
+                    `<option value="${server.url}">${server.name || server.url}</option>`
+                ).join('');
+
                 const modal = document.createElement('div');
                 modal.className = 'modal';
                 modal.style.display = 'block';
@@ -1226,18 +1248,18 @@
                     <div class="modal-content share-modal">
                         <h3 class="share-modal-title">Share Dashboard</h3>
                         <p class="share-modal-description">Name your project and choose what to include:</p>
-                        
+
                         <div style="margin-bottom: 1.5rem;">
                             <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
                                 Project Name
                             </label>
-                            <input type="text" 
-                                   id="project-name-input" 
+                            <input type="text"
+                                   id="project-name-input"
                                    value="${defaultProjectName.replace(/"/g, '&quot;')}"
                                    placeholder="Enter project name"
                                    style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem;">
                         </div>
-                        
+
                         <div class="share-options">
                             <label class="share-option-container" style="opacity: 0.7; cursor: not-allowed;">
                                 <input type="checkbox" id="include-stats-checkbox" checked disabled class="share-checkbox">
@@ -1245,7 +1267,7 @@
                                     <span class="share-option-label">📊 Statistics & Charts</span>
                                 </div>
                             </label>
-                            
+
                             <label class="share-option-container">
                                 <input type="checkbox" id="include-commands-checkbox" class="share-checkbox">
                                 <div>
@@ -1254,7 +1276,7 @@
                                     <small class="share-option-description">Make sure they don't include your private keys!</small>
                                 </div>
                             </label>
-                            
+
                             <label class="share-option-container">
                                 <input type="checkbox" id="make-public-checkbox" class="share-checkbox">
                                 <div>
@@ -1264,40 +1286,156 @@
                                 </div>
                             </label>
                         </div>
-                        
+
+                        <!-- Server Selection Section -->
+                        <div style="margin: 1.5rem 0; padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                                Server Address
+                            </label>
+                            <select id="server-select"
+                                    style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem; margin-bottom: 0.5rem;">
+                                <option value="">-- Select a server --</option>
+                                ${serverOptions}
+                                <option value="__new__">+ Add New Server</option>
+                            </select>
+
+                            <div id="new-server-input-container" style="display: none; margin-top: 0.5rem;">
+                                <input type="text"
+                                       id="new-server-input"
+                                       placeholder="http://10.0.1.100:8080"
+                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem;">
+                                <small style="color: #666; font-size: 0.8rem;">Enter server URL in format: http://IP:port</small>
+                            </div>
+                        </div>
+
+                        <!-- Authentication Section -->
+                        <div style="margin: 1.5rem 0; padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                                Authentication
+                            </label>
+                            <input type="text"
+                                   id="username-input"
+                                   placeholder="Username"
+                                   style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem; margin-bottom: 0.5rem;">
+                            <input type="password"
+                                   id="password-input"
+                                   placeholder="Password"
+                                   style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem;">
+                        </div>
+
                         <div class="share-info">
                             <p style="margin: 1rem 0 0.5rem 0; font-size: 0.875rem; color: #666;">
                                 ℹ️ Contact us to delete your shared links.
                             </p>
                         </div>
-                        
+
                         <div class="modal-button-container">
                             <button onclick="window.cancelShare()" class="modal-button modal-button-cancel">
                                 Cancel
                             </button>
-                            <button onclick="window.confirmShare()" class="modal-button modal-button-primary">
-                                Create Link
+                            <button onclick="window.loginAndShare()" class="modal-button modal-button-primary" id="login-share-btn">
+                                Login & Share
                             </button>
                         </div>
                     </div>
                 `;
-                
+
                 document.body.appendChild(modal);
-                
-                window.confirmShare = () => {
+
+                // Handle server selection change
+                const serverSelect = document.getElementById('server-select');
+                const newServerContainer = document.getElementById('new-server-input-container');
+                const newServerInput = document.getElementById('new-server-input');
+
+                serverSelect.addEventListener('change', (e) => {
+                    if (e.target.value === '__new__') {
+                        newServerContainer.style.display = 'block';
+                    } else {
+                        newServerContainer.style.display = 'none';
+                    }
+                });
+
+                window.loginAndShare = async () => {
                     const projectNameInput = document.getElementById('project-name-input');
                     const projectName = (projectNameInput?.value || '').trim() || 'Untitled Project';
                     const includeCommands = document.getElementById('include-commands-checkbox').checked;
                     const makePublic = document.getElementById('make-public-checkbox').checked;
-                    document.body.removeChild(modal);
-                    resolve({ projectName, includeCommands, makePublic });
+
+                    // Get server URL
+                    let serverUrl = serverSelect.value;
+                    if (serverUrl === '__new__') {
+                        serverUrl = newServerInput.value.trim();
+                        if (!serverUrl) {
+                            alert('Please enter a server URL');
+                            return;
+                        }
+                        // Save new server to LocalStorage
+                        const newServerName = serverUrl;
+                        const existingServers = JSON.parse(localStorage.getItem('sniffly_servers') || '[]');
+                        if (!existingServers.some(s => s.url === serverUrl)) {
+                            existingServers.push({ name: newServerName, url: serverUrl });
+                            localStorage.setItem('sniffly_servers', JSON.stringify(existingServers));
+                        }
+                    } else if (!serverUrl) {
+                        alert('Please select a server');
+                        return;
+                    }
+
+                    // Get credentials
+                    const username = document.getElementById('username-input').value.trim();
+                    const password = document.getElementById('password-input').value;
+
+                    if (!username || !password) {
+                        alert('Please enter username and password');
+                        return;
+                    }
+
+                    const loginShareBtn = document.getElementById('login-share-btn');
+                    loginShareBtn.disabled = true;
+                    loginShareBtn.textContent = 'Logging in...';
+
+                    try {
+                        // Login to get JWT token
+                        const loginResponse = await fetch(`${serverUrl}/auth/login`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ username, password })
+                        });
+
+                        if (!loginResponse.ok) {
+                            const errorData = await loginResponse.json().catch(() => ({}));
+                            throw new Error(errorData.message || 'Login failed');
+                        }
+
+                        const loginData = await loginResponse.json();
+                        const token = loginData.token || loginData.access_token;
+
+                        if (!token) {
+                            throw new Error('No token received from server');
+                        }
+
+                        document.body.removeChild(modal);
+                        resolve({
+                            projectName,
+                            includeCommands,
+                            makePublic,
+                            serverUrl,
+                            token
+                        });
+                    } catch (error) {
+                        alert('Login failed: ' + error.message);
+                        loginShareBtn.disabled = false;
+                        loginShareBtn.textContent = 'Login & Share';
+                    }
                 };
-                
+
                 window.cancelShare = () => {
                     document.body.removeChild(modal);
                     resolve(null);
                 };
-                
+
                 // Close on outside click
                 modal.addEventListener('click', (e) => {
                     if (e.target === modal) {
