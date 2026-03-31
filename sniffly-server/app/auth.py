@@ -2,7 +2,21 @@
 import bcrypt
 import jwt
 from datetime import datetime, timedelta
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPBearerQuery
 from app.config import settings
+
+security = HTTPBearer(auto_error=False)
+
+
+def get_current_user(token: str = Depends(HTTPBearerQuery(auto_error=False))) -> str | None:
+    """Get current user from JWT token. Returns None if no valid token."""
+    if token is None:
+        return None
+    payload = verify_token(token.credentials)
+    if payload is None:
+        return None
+    return payload.get("sub")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -39,3 +53,18 @@ def verify_token(token: str) -> dict | None:
         return payload
     except jwt.PyJWTError:
         return None
+
+
+async def require_admin(current_user: str = Depends(get_current_user)) -> str:
+    """检查当前用户是否为管理员"""
+    if current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    if current_user != settings.admin_username:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    return current_user
