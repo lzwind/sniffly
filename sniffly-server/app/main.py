@@ -11,7 +11,7 @@ import json
 from app.config import settings
 from app.database import connect_mongodb, disconnect_mongodb, connect_redis, disconnect_redis, get_mongodb
 from app.routers import auth_router, shares_router, gallery_router, admin_router
-from app.auth import create_access_token, verify_password, decode_token, get_current_user
+from app.auth import create_access_token, verify_password, decode_token, get_current_user, get_password_hash
 
 
 @asynccontextmanager
@@ -20,6 +20,18 @@ async def lifespan(app: FastAPI):
     # Startup
     await connect_mongodb()
     await connect_redis()
+
+    # Initialize default admin user if not exists
+    db = get_mongodb()
+    existing_admin = await db.users.find_one({"username": settings.admin_username})
+    if not existing_admin:
+        await db.users.insert_one({
+            "username": settings.admin_username,
+            "password_hash": get_password_hash(settings.admin_password),
+            "is_active": True,
+            "is_admin": True,
+        })
+
     yield
     # Shutdown
     await disconnect_mongodb()
