@@ -100,3 +100,12 @@ module = [
     "psutil",
 ]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "sniffly-server/tests"]
+asyncio_mode = "auto"
+markers = [
+    "e2e: 端到端浏览器测试，需要服务运行",
+    "unit: 单元测试",
+    "integration: 集成测试",
+]

@@ -79,6 +79,10 @@ def run_tests(args):
             cmd.append("tests/sniffly/test_performance.py")
         elif args.module == "admin":
             cmd.append("tests/sniffly-site/test_admin.py")
+        elif args.module == "server":
+            cmd.append("sniffly-server/tests/")
+        elif args.module == "server_e2e":
+            cmd.append("sniffly-server/tests/e2e/")
         else:
             print(f"{Colors.RED}Unknown module: {args.module}{Colors.ENDC}")
             return False
@@ -229,6 +233,8 @@ Examples:
   python run_tests.py -c                 # Run with coverage
   python run_tests.py -m processor       # Run only processor tests
   python run_tests.py -m performance     # Run only performance tests
+  python run_tests.py -m server          # Run sniffly-server tests (unit)
+  python run_tests.py -m server_e2e      # Run sniffly-server E2E tests
   python run_tests.py -k "streaming"     # Run tests matching keyword
   python run_tests.py --all              # Run all checks (tests, lint, type)
   python run_tests.py --report           # Generate test report
@@ -236,10 +242,10 @@ Examples:
     )
     
     # Test selection
-    parser.add_argument("-m", "--module", 
-                        choices=["processor", "stats", "memory_cache", "verification", "performance", "admin"],
+    parser.add_argument("-m", "--module",
+                        choices=["processor", "stats", "memory_cache", "verification", "performance", "admin", "server", "server_e2e"],
                         help="Run tests for specific module")
-    parser.add_argument("-f", "--file", 
+    parser.add_argument("-f", "--file",
                         help="Run specific test file")
     parser.add_argument("-k", "--keyword",
                         help="Run tests matching keyword expression")
