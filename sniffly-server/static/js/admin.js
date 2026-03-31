@@ -4,6 +4,12 @@ const API_BASE = '/api/admin';
 let currentUser = null;
 let currentPage = { users: 1, shares: 1 };
 
+// 获取带认证信息的请求头
+function authHeaders() {
+    const token = localStorage.getItem('sniffly_token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     // Check if on users page
@@ -41,7 +47,7 @@ async function loadUsers(page = 1) {
     tbody.innerHTML = '<tr><td colspan="5" class="loading-state">加载中...</td></tr>';
 
     try {
-        const response = await fetch(`${API_BASE}/users?page=${page}&limit=20`);
+        const response = await fetch(`${API_BASE}/users?page=${page}&limit=20`, { headers: authHeaders() });
         if (!response.ok) throw new Error('Failed to load users');
 
         const data = await response.json();
@@ -116,7 +122,7 @@ function showCreateUserModal() {
         try {
             const response = await fetch(`${API_BASE}/users`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify(data)
             });
 
@@ -172,7 +178,7 @@ async function showEditUserModal(username, isActive) {
         try {
             const response = await fetch(`${API_BASE}/users/${username}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify(data)
             });
 
@@ -195,7 +201,8 @@ async function deleteUser(username) {
 
     try {
         const response = await fetch(`${API_BASE}/users/${username}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: authHeaders()
         });
 
         if (!response.ok) {
@@ -216,7 +223,7 @@ async function loadShares(page = 1) {
     tbody.innerHTML = '<tr><td colspan="5" class="loading-state">加载中...</td></tr>';
 
     try {
-        const response = await fetch(`${API_BASE}/shares?page=${page}&limit=20`);
+        const response = await fetch(`${API_BASE}/shares?page=${page}&limit=20`, { headers: authHeaders() });
         if (!response.ok) throw new Error('Failed to load shares');
 
         const data = await response.json();
@@ -260,7 +267,8 @@ async function deleteShare(shareId) {
 
     try {
         const response = await fetch(`${API_BASE}/shares/${shareId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: authHeaders()
         });
 
         if (!response.ok) {

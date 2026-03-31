@@ -70,14 +70,37 @@ app.include_router(admin_router)
 security = HTTPBearer(auto_error=False)
 
 
-def get_optional_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str | None:
-    """Get current user if authenticated, None otherwise."""
-    if credentials is None:
-        return None
-    try:
-        return decode_token(credentials.credentials).get("sub")
-    except Exception:
-        return None
+def get_optional_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> str | None:
+    """
+    Get current user from JWT token.
+
+    Checks in order:
+    1. Authorization: Bearer <token> header (API clients)
+    2. sniffly_session cookie (browser sessions)
+    """
+    # Priority 1: HTTPBearer header
+    if credentials is not None:
+        try:
+            payload = decode_token(credentials.credentials)
+            if payload is not None:
+                return payload.get("sub")
+        except Exception:
+            pass
+
+    # Priority 2: sniffly_session cookie
+    token_str = request.cookies.get("sniffly_session")
+    if token_str:
+        try:
+            payload = decode_token(token_str)
+            if payload is not None:
+                return payload.get("sub")
+        except Exception:
+            pass
+
+    return None
 
 
 # ==================== Public Routes ====================
@@ -163,17 +186,29 @@ async def login(request: Request, response: Response, username: str = Form(...),
     # Create token
     token = create_access_token(data={"sub": username})
 
-    # Return HTML with token in a script for client storage
-    return templates.TemplateResponse(
+    # Return HTML with token in a script for client storage.
+    # Also set sniffly_session cookie so browser page navigation works.
+    response = templates.TemplateResponse(
         "login_success.html",
         {"request": request, "username": username, "token": token}
     )
+    response.set_cookie(
+        key="sniffly_session",
+        value=token,
+        max_age=settings.jwt_expire_hours * 3600,
+        httponly=True,
+        secure=False,  # True in production with HTTPS
+        samesite="lax",
+    )
+    return response
 
 
 @app.get("/auth/logout")
 async def logout():
     """Logout and redirect to home."""
-    return RedirectResponse(url="/", status_code=302)
+    response = RedirectResponse(url="/", status_code=302)
+    response.delete_cookie(key="sniffly_session", path="/")
+    return response
 
 
 # ==================== Admin Routes ====================

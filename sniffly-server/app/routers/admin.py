@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.auth import get_current_user, require_admin, hash_password, verify_password
 from app.database import get_mongodb
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
 @router.get("/stats", response_model=AdminStats)
-async def get_admin_stats(username: str = Depends(require_admin)):
+async def get_admin_stats(request: Request, username: str = Depends(require_admin)):
     """获取系统统计信息"""
     db = get_mongodb()
 
@@ -56,6 +56,7 @@ async def get_admin_stats(username: str = Depends(require_admin)):
 
 @router.get("/users", response_model=UserListResponse)
 async def list_users(
+    request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     username: str = Depends(require_admin),
@@ -83,6 +84,7 @@ async def list_users(
 
 @router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
+    request: Request,
     user_data: UserCreate,
     username: str = Depends(require_admin),
 ):
@@ -116,6 +118,7 @@ async def create_user(
 
 @router.get("/users/{target_username}", response_model=UserResponse)
 async def get_user(
+    request: Request,
     target_username: str,
     username: str = Depends(require_admin),
 ):
@@ -141,6 +144,7 @@ async def get_user(
 
 @router.put("/users/{target_username}", response_model=UserResponse)
 async def update_user(
+    request: Request,
     target_username: str,
     user_data: UserUpdate,
     username: str = Depends(require_admin),
@@ -181,6 +185,7 @@ async def update_user(
 
 @router.delete("/users/{target_username}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
+    request: Request,
     target_username: str,
     username: str = Depends(require_admin),
 ):
@@ -208,6 +213,7 @@ async def delete_user(
 
 @router.get("/shares", response_model=ShareListResponse)
 async def list_shares(
+    request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     username: str = Depends(require_admin),
@@ -234,6 +240,7 @@ async def list_shares(
 
 @router.delete("/shares/{share_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_share(
+    request: Request,
     share_id: str,
     username: str = Depends(require_admin),
 ):

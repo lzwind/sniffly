@@ -2,7 +2,7 @@
 import bcrypt
 import jwt
 from datetime import datetime, timedelta
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer
 from typing import Optional
 from app.config import settings
@@ -11,15 +11,44 @@ security = HTTPBearer(auto_error=False)
 
 
 def get_current_user(token: Optional[object] = Depends(security)) -> str | None:
-    """Get current user from JWT token. Returns None if no valid token."""
-    if token is None:
-        return None
-    # HTTPBearer returns HTTPAuthorizationCredentials object
-    credentials = token.credentials if hasattr(token, 'credentials') else token
-    payload = verify_token(credentials)
-    if payload is None:
-        return None
-    return payload.get("sub")
+    """
+    Get current user from JWT token.
+    FastAPI injects Request via Depends(Request) when called as a dependency.
+    """
+    return None
+
+
+async def get_current_user_with_cookie(request: Request, token: Optional[object] = Depends(security)) -> str | None:
+    """
+    Get current user from JWT token — checks both Bearer header and session cookie.
+
+    Checks in order:
+    1. Authorization: Bearer <token> header (HTTPBearer, for API clients)
+    2. sniffly_session cookie (for browser sessions)
+    """
+    import logging
+    logger = logging.getLogger("uvicorn")
+    logger.warning(f"[AUTH DEBUG] request.cookies: {dict(request.cookies)}")
+    logger.warning(f"[AUTH DEBUG] token from HTTPBearer: {token}")
+
+    # Priority 1: HTTPBearer header (API clients, playwright, etc.)
+    if token is not None:
+        credentials = token.credentials if hasattr(token, 'credentials') else token
+        payload = verify_token(credentials)
+        if payload is not None:
+            logger.warning(f"[AUTH DEBUG] Authenticated via Bearer: {payload.get('sub')}")
+            return payload.get("sub")
+
+    # Priority 2: sniffly_session cookie (browser sessions)
+    token_str = request.cookies.get("sniffly_session")
+    logger.warning(f"[AUTH DEBUG] token_str from cookie: {token_str}")
+    if token_str:
+        payload = verify_token(token_str)
+        logger.warning(f"[AUTH DEBUG] payload from cookie: {payload}")
+        if payload is not None:
+            return payload.get("sub")
+
+    return None
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -58,7 +87,7 @@ def verify_token(token: str) -> dict | None:
         return None
 
 
-async def require_admin(current_user: str = Depends(get_current_user)) -> str:
+async def require_admin(request: Request, current_user: str = Depends(get_current_user_with_cookie)) -> str:
     """检查当前用户是否为管理员"""
     if current_user is None:
         raise HTTPException(
