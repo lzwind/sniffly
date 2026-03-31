@@ -59,3 +59,59 @@ class GalleryResponse(BaseModel):
     """画廊响应模型"""
     projects: list[ShareItem]
     total: int
+
+
+# Admin models
+class UserCreate(BaseModel):
+    """创建用户请求模型"""
+    username: str = Field(..., min_length=1, max_length=50)
+    password: str = Field(..., min_length=8, max_length=100)
+    is_active: bool = True
+
+
+class UserUpdate(BaseModel):
+    """更新用户请求模型"""
+    password: Optional[str] = Field(None, min_length=8, max_length=100)
+    is_active: Optional[bool] = None
+
+
+class UserResponse(BaseModel):
+    """用户响应模型"""
+    username: str
+    created_at: datetime
+    is_active: bool
+    share_count: int = 0
+
+
+class UserListResponse(BaseModel):
+    """用户列表响应模型"""
+    users: list[UserResponse]
+    total: int
+    page: int
+    limit: int
+
+
+class ShareAdminItem(BaseModel):
+    """管理后台分享列表项"""
+    id: str
+    project_name: str
+    created_by: str
+    created_at: datetime
+    is_public: bool
+
+
+class ShareListResponse(BaseModel):
+    """分享列表响应模型"""
+    shares: list[ShareAdminItem]
+    total: int
+    page: int
+    limit: int
+
+
+class AdminStats(BaseModel):
+    """系统统计模型"""
+    total_users: int
+    active_users: int
+    total_shares: int
+    public_shares: int
+    recent_shares: list[ShareAdminItem]
