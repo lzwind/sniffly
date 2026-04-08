@@ -31,7 +31,7 @@
 | 环境 | 服务 | 说明 |
 |------|------|------|
 | 开发 | `uvicorn fastapi_main:app` | FastAPI 直接 serve 静态文件 |
-| 生产 | nginx 反向代理 + uvicorn | nginx 处理静态文件 + 负载均衡 |
+| 生产 | nginx 反向代理 + uvicorn | nginx 处理静态文件 + HTTPS（可选） |
 
 ---
 
@@ -161,9 +161,11 @@ username=admin&password=admin&grant_type=password
 | 文件 | 改动 |
 |------|------|
 | `index.html` | 改为登录页（移除 Gallery 内容） |
-| `share.html` | 保留，作为分享查看器 |
+| `share.html` | **保留原有布局设计**，仅改动认证相关部分 |
 | `admin.html` | 保留，改为 API 驱动 + 账号密码认证 |
 | `share-template.html` | 保留，构建 share.html 用 |
+
+**share.html 布局原则**：原有页面样式、组件布局保持不变，仅替换认证逻辑（Google OAuth → 账号密码）。
 
 ### 新增文件
 
@@ -242,7 +244,7 @@ volumes:
 
 ---
 
-## 待确认
+## 结论
 
-- [ ] 生产环境是否需要 nginx？（开发阶段用 uvicorn 直接服务）
-- [ ] 是否需要 API Key 作为 Password Grant 的替代方案？（当前设计为 Password Grant）
+- **nginx**：生产环境使用，开发阶段用 uvicorn 直接服务静态文件
+- **API 认证**：Password Grant（OAuth2），已确认
