@@ -112,7 +112,49 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- User Management Section -->
+    <div class="user-management-section">
+        <div class="section-header">
+            <h3>User Management</h3>
+            <button class="btn btn-view" onclick="showCreateUserModal()">Add User</button>
+        </div>
+        <div id="users-list" class="users-list">
+            <div class="loading">Loading users...</div>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div id="create-user-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Create New User</h2>
+                <button class="close-btn" onclick="closeCreateUserModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="create-user-form" onsubmit="handleCreateUser(event)">
+                    <div class="form-group">
+                        <label for="new-username">Username</label>
+                        <input type="text" id="new-username" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-password">Password</label>
+                        <input type="password" id="new-password" name="password" minlength="6" required>
+                        <small>Minimum 6 characters</small>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="new-is-admin" name="is_admin">
+                        <label for="new-is-admin">Admin User</label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-unfeature" onclick="closeCreateUserModal()">Cancel</button>
+                        <button type="submit" class="btn btn-view">Create</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
     const API_BASE = '/api';
     let token = localStorage.getItem('access_token');
@@ -223,6 +265,55 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    function showCreateUserModal() {
+        document.getElementById('create-user-modal').style.display = 'flex';
+        document.getElementById('new-username').focus();
+    }
+
+    function closeCreateUserModal() {
+        document.getElementById('create-user-modal').style.display = 'none';
+        document.getElementById('create-user-form').reset();
+    }
+
+    async function handleCreateUser(event) {
+        event.preventDefault();
+
+        const username = document.getElementById('new-username').value.trim();
+        const password = document.getElementById('new-password').value;
+        const isAdmin = document.getElementById('new-is-admin').checked;
+
+        if (!username || !password) {
+            alert('Please fill in all required fields');
+            return;
+        }
+
+        if (password.length < 6) {
+            alert('Password must be at least 6 characters');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/users`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password, is_admin: isAdmin })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to create user');
+            }
+
+            closeCreateUserModal();
+            loadUsers();
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
     }
 
     // Logout handler
