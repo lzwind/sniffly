@@ -2,7 +2,7 @@ services:
   api:
     build: .
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       - DATABASE_URL=mysql+pymysql://sniffly:sniffly@mysql:3306/sniffly
       - SECRET_KEY=test-secret-key-for-testing
@@ -33,6 +33,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 15s
 
 volumes:
   mysql_test_data:

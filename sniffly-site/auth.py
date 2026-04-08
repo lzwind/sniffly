@@ -1,5 +1,6 @@
 """Authentication module using OAuth2 Password Grant and Cookie Session."""
 
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -8,7 +9,8 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from models import User
 
@@ -19,6 +21,20 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
+
+# Database dependency
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://sniffly:sniffly@localhost:3306/sniffly")
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -58,7 +74,7 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
 async def get_current_user(
     request: Request,
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(lambda: get_db()),
+    db: Session = Depends(get_db),
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -83,7 +99,7 @@ async def get_current_user(
 async def get_current_user_optional(
     request: Request,
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(lambda: get_db()),
+    db: Session = Depends(get_db),
 ) -> Optional[User]:
     try:
         return await get_current_user(request, token, db)
@@ -95,21 +111,3 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if not current_user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return current_user
-
-
-# Database dependency
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-DATABASE_URL = "mysql+pymysql://sniffly:sniffly@localhost:3306/sniffly"
-
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
