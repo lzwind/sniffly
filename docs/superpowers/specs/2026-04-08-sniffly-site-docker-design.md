@@ -248,3 +248,35 @@ volumes:
 
 - **nginx**：生产环境使用，开发阶段用 uvicorn 直接服务静态文件
 - **API 认证**：Password Grant（OAuth2），已确认
+
+---
+
+## 实现状态
+
+**状态：✅ 已完成实现**
+
+所有计划中的功能已完成实现，代码已提交到 git 仓库。
+
+### 相关提交
+
+| 提交 | 说明 |
+|------|------|
+| a401826 | feat: add Python dependencies for FastAPI backend |
+| 4920f08 | feat: add SQLAlchemy models for User and Share |
+| eacc83a | feat: replace Google OAuth with Password Grant auth module |
+| 235d846 | feat: add OAuth2 token endpoint and auth API routes |
+| 382f691 | feat: add shares API with merge logic |
+| c1c6239 | feat: add FastAPI main entry point with static file serving |
+| 7b8ef7b | feat: add Docker configuration for local deployment |
+| 2ed7d61 | feat(site): convert index.html to login page |
+| 139ddc4 | feat: add dashboard page for listing user's shares |
+| 5baa8e8 | feat: complete Docker deployment setup for sniffly-site |
+
+### 快速启动
+
+```bash
+cd sniffly-site
+docker-compose up --build
+# 访问 http://localhost:8000
+# 默认账号: admin / admin
+```
