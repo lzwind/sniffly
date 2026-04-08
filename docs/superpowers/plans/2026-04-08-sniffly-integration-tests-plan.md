@@ -211,9 +211,47 @@ make test-integration
 
 ## 验证清单
 
-- [ ] `docker-compose.test.yml config` 无报错
-- [ ] `pytest --collect-only` 收集到所有用例
-- [ ] `test_auth.py` 8/8 通过
-- [ ] `test_shares.py` 7/7 通过
-- [ ] `test_users.py` 9/9 通过
-- [ ] `docker-compose down -v` 清理干净
+- [x] `docker-compose.test.yml config` 无报错
+- [x] `pytest --collect-only` 收集到所有用例
+- [x] `test_auth.py` 8/8 通过
+- [x] `test_shares.py` 7/7 通过
+- [x] `test_users.py` 9/9 通过
+- [x] `docker-compose down -v` 清理干净
+
+---
+
+## 实现状态
+
+**完成时间**: 2026-04-08
+
+**实际测试结果**: 24/24 测试通过
+
+### 实现过程中修复的问题
+
+1. **MySQL JSON 默认值** - MySQL 8 不允许 JSON 列有默认值，移除 `init.sql` 中的 `DEFAULT '{}'` 和 `DEFAULT '[]'`
+
+2. **端口冲突** - 本地 OrbStack 占用端口 8000，改为使用端口 8001
+
+3. **SQLAlchemy 2.0 兼容性** - `models.py` 添加 `__allow_unmapped__ = True`
+
+4. **bcrypt/passlib 兼容性** - `bcrypt>=5.0` 与 passlib 不兼容，锁定 `bcrypt==4.0.1`
+
+5. **auth.py 依赖顺序** - `get_db` 函数定义在文件底部但在顶部被引用，重构文件结构
+
+6. **API DATABASE_URL** - `auth.py` 硬编码 `localhost`，改为使用环境变量 `os.getenv("DATABASE_URL")`
+
+### 新增/修改的文件
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `sniffly-site/docker-compose.test.yml` | 新增 | 测试专用 Docker Compose |
+| `sniffly-site/init.sql` | 修改 | 移除 JSON 默认值，添加 admin 用户 seeding |
+| `sniffly-site/pytest.ini` | 新增 | pytest 配置 |
+| `sniffly-site/tests/conftest.py` | 新增 | fixtures |
+| `sniffly-site/tests/integration/test_auth.py` | 新增 | 8 个测试 |
+| `sniffly-site/tests/integration/test_shares.py` | 新增 | 7 个测试 |
+| `sniffly-site/tests/integration/test_users.py` | 新增 | 9 个测试 |
+| `sniffly-site/models.py` | 修改 | 添加 `__allow_unmapped__ = True` |
+| `sniffly-site/auth.py` | 修改 | 重构依赖顺序，支持环境变量 DATABASE_URL |
+| `sniffly-site/requirements.txt` | 修改 | 添加 pytest, requests; 锁定 bcrypt==4.0.1 |
+| `sniffly-site/Dockerfile` | 修改 | 添加 curl 用于健康检查 |
