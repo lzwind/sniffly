@@ -1,180 +1,115 @@
-"""Authentication module for admin access using Google OAuth."""
+"""Authentication module using OAuth2 Password Grant and Cookie Session."""
 
-import json
-import os
-import secrets
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any
+from typing import Optional
 
-import httpx
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
+from models import User
 
-# Helper functions
-def is_dev_mode() -> bool:
-    """Check if running in development mode."""
-    return os.getenv("ENV", "DEV") == "DEV"
+# Configuration
+SECRET_KEY = "your-secret-key-change-in-production"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
-
-# Load .env.sniffly.dev file if it exists
-# Try multiple possible locations for the env file
-possible_paths = [
-    Path(__file__).parent.parent / ".env.sniffly.dev",  # From sniffly/auth.py
-    Path.cwd() / ".env.sniffly.dev",  # Current directory
-    Path.cwd().parent / ".env.sniffly.dev",  # Parent directory
-]
-for env_file in possible_paths:
-    if env_file.exists():
-        from dotenv import load_dotenv
-
-        load_dotenv(env_file)
-        break
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 
-class GoogleOAuth:
-    """Handle Google OAuth authentication flow."""
-
-    def __init__(self):
-        self.client_id = os.getenv("GOOGLE_CLIENT_ID", "")
-        self.client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
-        # Use appropriate redirect URI based on environment
-        if is_dev_mode():
-            self.redirect_uri = os.getenv("GOOGLE_REDIRECT_URI_DEV", "http://localhost:8000/admin/callback")
-        else:
-            self.redirect_uri = os.getenv("GOOGLE_REDIRECT_URI_PROD", "https://sniffly.dev/admin/callback")
-        self.authorized_emails = os.getenv("ADMIN_EMAILS", "").split(",")
-        self.authorized_emails = [email.strip() for email in self.authorized_emails if email.strip()]
-
-        # OAuth endpoints
-        self.auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
-        self.token_url = "https://oauth2.googleapis.com/token"
-        self.userinfo_url = "https://www.googleapis.com/oauth2/v2/userinfo"
-
-        # Session storage (in production, use proper session store)
-        self.sessions_file = Path.home() / ".sniffly" / "admin_sessions.json"
-        self.sessions_file.parent.mkdir(exist_ok=True)
-        self._load_sessions()
-
-    def _load_sessions(self):
-        """Load sessions from file."""
-        if self.sessions_file.exists():
-            with open(self.sessions_file) as f:
-                self.sessions = json.load(f)
-        else:
-            self.sessions = {}
-
-    def _save_sessions(self):
-        """Save sessions to file."""
-        with open(self.sessions_file, "w") as f:
-            json.dump(self.sessions, f)
-
-    def get_auth_url(self, state: str) -> str:
-        """Generate Google OAuth authorization URL."""
-        params = {
-            "client_id": self.client_id,
-            "redirect_uri": self.redirect_uri,
-            "response_type": "code",
-            "scope": "openid email profile",
-            "state": state,
-            "access_type": "online",
-            "prompt": "select_account",
-        }
-
-        param_string = "&".join(f"{k}={v}" for k, v in params.items())
-        return f"{self.auth_url}?{param_string}"
-
-    async def exchange_code(self, code: str) -> dict[str, Any]:
-        """Exchange authorization code for access token."""
-        data = {
-            "code": code,
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
-            "redirect_uri": self.redirect_uri,
-            "grant_type": "authorization_code",
-        }
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(self.token_url, data=data)
-
-            if response.status_code != 200:
-                raise HTTPException(status_code=400, detail="Failed to exchange code")
-
-            return response.json()
-
-    async def get_user_info(self, access_token: str) -> dict[str, Any]:
-        """Get user information from Google."""
-        headers = {"Authorization": f"Bearer {access_token}"}
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(self.userinfo_url, headers=headers)
-
-            if response.status_code != 200:
-                raise HTTPException(status_code=400, detail="Failed to get user info")
-
-            return response.json()
-
-    def is_authorized_admin(self, email: str) -> bool:
-        """Check if email is in authorized admin list."""
-        if is_dev_mode():
-            # In dev mode, allow any email for testing
-            return True
-        return email in self.authorized_emails
-
-    def create_session(self, user_info: dict[str, Any]) -> str:
-        """Create admin session and return session ID."""
-        session_id = secrets.token_urlsafe(32)
-
-        # Handle temporary sessions for CSRF state
-        if user_info.get("temp"):
-            self.sessions[session_id] = {
-                "temp": True,
-                "created_at": datetime.now().isoformat(),
-                "expires_at": (datetime.now() + timedelta(minutes=10)).isoformat(),  # Short expiry for temp sessions
-            }
-        else:
-            # Regular user session
-            self.sessions[session_id] = {
-                "email": user_info["email"],
-                "name": user_info.get("name", ""),
-                "picture": user_info.get("picture", ""),
-                "created_at": datetime.now().isoformat(),
-                "expires_at": (datetime.now() + timedelta(days=7)).isoformat(),
-            }
-
-        self._save_sessions()
-        return session_id
-
-    def get_session(self, session_id: str) -> dict[str, Any] | None:
-        """Get session by ID if valid."""
-        session = self.sessions.get(session_id)
-        if not session:
-            return None
-
-        # Check expiration
-        expires_at = datetime.fromisoformat(session["expires_at"])
-        if datetime.now() > expires_at:
-            self.delete_session(session_id)
-            return None
-
-        return session
-
-    def delete_session(self, session_id: str):
-        """Delete a session."""
-        if session_id in self.sessions:
-            del self.sessions[session_id]
-            self._save_sessions()
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
 
 
-def require_admin(request: Request) -> dict[str, Any]:
-    """Decorator/dependency to require admin authentication."""
-    session_id = request.cookies.get("admin_session")
-    if not session_id:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
 
-    oauth = GoogleOAuth()
-    session = oauth.get_session(session_id)
-    if not session:
-        raise HTTPException(status_code=401, detail="Session expired")
 
-    return session
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+class TokenData(BaseModel):
+    username: str
+    user_id: int
+    is_admin: bool
+
+
+def get_user_by_username(db: Session, username: str) -> Optional[User]:
+    return db.query(User).filter(User.username == username).first()
+
+
+def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
+    user = get_user_by_username(db, username)
+    if not user:
+        return None
+    if not verify_password(password, user.password_hash):
+        return None
+    return user
+
+
+async def get_current_user(
+    request: Request,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(lambda: get_db()),
+) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = TokenData(username=username, user_id=payload.get("user_id"), is_admin=payload.get("is_admin"))
+    except JWTError:
+        raise credentials_exception
+
+    user = get_user_by_username(db, token_data.username)
+    if user is None:
+        raise credentials_exception
+    return user
+
+
+async def get_current_user_optional(
+    request: Request,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(lambda: get_db()),
+) -> Optional[User]:
+    try:
+        return await get_current_user(request, token, db)
+    except HTTPException:
+        return None
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    if not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return current_user
+
+
+# Database dependency
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+DATABASE_URL = "mysql+pymysql://sniffly:sniffly@localhost:3306/sniffly"
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
