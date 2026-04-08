@@ -30,12 +30,12 @@ def build_share_template():
             combined_js.append(f"// === {js_file} ===\n{f.read()}\n")
 
     # Add share-viewer.js from sniffly-site
-    share_viewer_path = Path(__file__).parent / "static" / "js" / "share-viewer.js"
+    share_viewer_path = Path(__file__).parent.parent / "static" / "js" / "share-viewer.js"
     with open(share_viewer_path) as f:
         combined_js.append(f"// === share-viewer.js ===\n{f.read()}\n")
 
     # Read share.html template
-    template_path = Path(__file__).parent / "share-template.html"
+    template_path = Path(__file__).parent.parent / "templates" / "share-template.html"
     with open(template_path) as f:
         template = f.read()
 
@@ -44,7 +44,7 @@ def build_share_template():
     template = template.replace("// DASHBOARD_SCRIPTS", "\n".join(combined_js))
 
     # Write final share.html
-    output_path = Path(__file__).parent / "share.html"
+    output_path = Path(__file__).parent.parent / "templates" / "share.html"
     with open(output_path, "w") as f:
         f.write(template)
 

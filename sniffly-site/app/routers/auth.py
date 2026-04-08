@@ -5,13 +5,13 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from auth import (
+from app.auth import (
     authenticate_user,
     create_access_token,
     get_current_user,
     get_db,
 )
-from models import User
+from app.models import User
 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])

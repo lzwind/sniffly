@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, get_db, require_admin
-from models import Share, User
+from app.auth import get_current_user, get_db, require_admin
+from app.models import Share, User
 
 
 router = APIRouter(prefix="/api/shares", tags=["shares"])

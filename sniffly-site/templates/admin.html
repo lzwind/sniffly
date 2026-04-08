@@ -1,0 +1,1653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sniffly Admin Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141416;
+            --bg-tertiary: #1c1c1f;
+            --bg-elevated: #232326;
+
+            --accent-orange: #ff6b35;
+            --accent-orange-dim: rgba(255, 107, 53, 0.15);
+            --accent-teal: #00d4aa;
+            --accent-teal-dim: rgba(0, 212, 170, 0.15);
+            --accent-purple: #a855f7;
+            --accent-purple-dim: rgba(168, 85, 247, 0.15);
+
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-tertiary: #71717a;
+
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(255, 255, 255, 0.12);
+
+            --font-display: 'Plus Jakarta Sans', sans-serif;
+            --font-body: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-subtle);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(20px);
+        }
+
+        .header-content {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+        }
+
+        .header-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .brand-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--accent-orange), #ff8f5c);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s var(--ease-out-expo);
+            box-shadow: 0 4px 20px rgba(255, 107, 53, 0.3);
+        }
+
+        .brand-icon:hover {
+            transform: scale(1.05) rotate(-3deg);
+            box-shadow: 0 6px 30px rgba(255, 107, 53, 0.4);
+        }
+
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand-name {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .brand-name:hover {
+            color: var(--accent-orange);
+        }
+
+        .brand-subtitle {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .header-nav {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .admin-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .admin-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent-teal), #00b894);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: var(--bg-primary);
+        }
+
+        .admin-email {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            color: var(--text-tertiary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 107, 53, 0.1);
+            border-color: var(--accent-orange);
+            color: var(--accent-orange);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Page Header */
+        .page-header {
+            margin-bottom: 2.5rem;
+        }
+
+        .page-title {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .page-subtitle {
+            color: var(--text-tertiary);
+            font-size: 1rem;
+        }
+
+        /* Stats Grid */
+        .stats-section {
+            margin-bottom: 2.5rem;
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s var(--ease-out-expo);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-orange), var(--accent-teal));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--border-hover);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-card.active {
+            background: var(--accent-orange-dim);
+            border-color: var(--accent-orange);
+        }
+
+        .stat-card.active::before {
+            opacity: 1;
+            background: var(--accent-orange);
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .stat-icon.orange {
+            background: var(--accent-orange-dim);
+        }
+
+        .stat-icon.teal {
+            background: var(--accent-teal-dim);
+        }
+
+        .stat-icon.purple {
+            background: var(--accent-purple-dim);
+        }
+
+        .stat-icon.gray {
+            background: var(--bg-tertiary);
+        }
+
+        .stat-trend {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            background: var(--accent-teal-dim);
+            color: var(--accent-teal);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1;
+            margin-bottom: 1rem;
+        }
+
+        .stat-breakdown {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+        }
+
+        .stat-breakdown span {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .dot.active { background: var(--accent-teal); }
+        .dot.deleted { background: var(--accent-orange); }
+
+        /* Filters */
+        .filters-section {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 280px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 0.875rem 1rem 0.875rem 2.75rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            transition: all 0.2s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--accent-orange);
+            box-shadow: 0 0 0 3px var(--accent-orange-dim);
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-tertiary);
+            font-size: 1.125rem;
+        }
+
+        .filter-select {
+            padding: 0.875rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            cursor: pointer;
+            min-width: 180px;
+            transition: all 0.2s;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--accent-orange);
+            box-shadow: 0 0 0 3px var(--accent-orange-dim);
+        }
+
+        /* Content Grid */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        @media (max-width: 1200px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Projects Section */
+        .projects-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .section-header-title {
+            font-family: var(--font-display);
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .section-header-meta {
+            font-size: 0.875rem;
+            color: var(--text-tertiary);
+        }
+
+        .projects-grid {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .project-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border-subtle);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .project-card:last-child {
+            border-bottom: none;
+        }
+
+        .project-card:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .project-card.featured {
+            background: var(--accent-orange-dim);
+            border-left: 3px solid var(--accent-orange);
+        }
+
+        .project-card.featured:hover {
+            background: rgba(255, 107, 53, 0.2);
+        }
+
+        .project-info {
+            flex: 1;
+        }
+
+        .project-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .project-name {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .badge {
+            padding: 0.25rem 0.625rem;
+            border-radius: 20px;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .badge-featured {
+            background: var(--accent-orange);
+            color: white;
+        }
+
+        .badge-commands {
+            background: var(--accent-teal-dim);
+            color: var(--accent-teal);
+        }
+
+        .project-meta {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.8125rem;
+            color: var(--text-tertiary);
+        }
+
+        .project-meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+
+        .project-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+
+        .btn-primary {
+            background: var(--accent-orange);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #ff8555;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        /* User Management Sidebar */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .user-management-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .card-title {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .users-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .users-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .users-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .users-list::-webkit-scrollbar-thumb {
+            background: var(--border-hover);
+            border-radius: 3px;
+        }
+
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-subtle);
+            transition: background 0.2s;
+        }
+
+        .user-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent-purple), #c084fc);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: white;
+        }
+
+        .user-avatar.admin {
+            background: linear-gradient(135deg, var(--accent-orange), #ff8f5c);
+        }
+
+        .user-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .user-role {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 0.375rem;
+        }
+
+        .icon-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 1rem;
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+        }
+
+        .icon-btn.danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 2rem;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            width: 100%;
+            max-width: 900px;
+            max-height: 85vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            animation: modalIn 0.3s var(--ease-out-expo);
+        }
+
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .modal-title {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 10px;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: var(--border-hover);
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="password"] {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent-orange);
+            box-shadow: 0 0 0 3px var(--accent-orange-dim);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 0.375rem;
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+        }
+
+        .checkbox-wrapper input {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--accent-orange);
+            cursor: pointer;
+        }
+
+        .checkbox-wrapper label {
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        /* Shares List in Modal */
+        .shares-search {
+            margin-bottom: 1rem;
+        }
+
+        .shares-search input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+        }
+
+        .shares-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .share-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            transition: all 0.2s;
+        }
+
+        .share-item:hover {
+            border-color: var(--border-hover);
+        }
+
+        .share-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+        }
+
+        .share-project {
+            font-weight: 600;
+            color: var(--text-primary);
+            min-width: 150px;
+        }
+
+        .share-date {
+            font-size: 0.8125rem;
+            color: var(--text-tertiary);
+        }
+
+        .share-badge {
+            padding: 0.25rem 0.625rem;
+            border-radius: 20px;
+            font-size: 0.6875rem;
+            font-weight: 600;
+        }
+
+        .badge-public {
+            background: var(--accent-teal-dim);
+            color: var(--accent-teal);
+        }
+
+        .badge-private {
+            background: var(--bg-elevated);
+            color: var(--text-tertiary);
+        }
+
+        /* Loading & Empty States */
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem;
+            color: var(--text-tertiary);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-subtle);
+            border-top-color: var(--accent-orange);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem;
+            color: var(--text-tertiary);
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.5s var(--ease-out-expo) forwards;
+        }
+
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+        .delay-4 { animation-delay: 0.4s; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="header-main">
+                <div class="header-brand">
+                    <div class="brand-icon" onclick="window.location.href='/'">S</div>
+                    <div class="brand-text">
+                        <span class="brand-name" onclick="window.location.href='/'">Sniffly</span>
+                        <span class="brand-subtitle">Admin Dashboard</span>
+                    </div>
+                </div>
+                <div class="header-nav">
+                    <div class="admin-info">
+                        <div class="admin-avatar" id="admin-avatar-initial">A</div>
+                        <span id="admin-email" class="admin-email">admin@sniffly.io</span>
+                    </div>
+                    <a href="#" class="logout-btn" id="logout-link">
+                        <span>Logout</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="page-header animate-in">
+            <h1 class="page-title">Dashboard Overview</h1>
+            <p class="page-subtitle">Manage your gallery, users, and shared projects</p>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="stats-section animate-in delay-1">
+            <h3 class="section-title">Share Statistics</h3>
+            <div class="stats-grid">
+                <div class="stat-card clickable" onclick="showAllShares('all')">
+                    <div class="stat-header">
+                        <div class="stat-icon orange">📊</div>
+                    </div>
+                    <div class="stat-label">Total Shares</div>
+                    <div class="stat-value" id="total-shares">0</div>
+                    <div class="stat-breakdown">
+                        <span><span class="dot active"></span> Active: <span id="total-active">0</span></span>
+                        <span><span class="dot deleted"></span> Deleted: <span id="total-deleted">0</span></span>
+                    </div>
+                </div>
+
+                <div class="stat-card clickable" onclick="showAllShares('public')">
+                    <div class="stat-header">
+                        <div class="stat-icon teal">🌐</div>
+                    </div>
+                    <div class="stat-label">Public Shares</div>
+                    <div class="stat-value" id="public-shares">0</div>
+                    <div class="stat-breakdown">
+                        <span><span class="dot active"></span> Active: <span id="public-active">0</span></span>
+                        <span><span class="dot deleted"></span> Deleted: <span id="public-deleted">0</span></span>
+                    </div>
+                </div>
+
+                <div class="stat-card clickable" onclick="showAllShares('private')">
+                    <div class="stat-header">
+                        <div class="stat-icon purple">🔒</div>
+                    </div>
+                    <div class="stat-label">Private Shares</div>
+                    <div class="stat-value" id="private-shares">0</div>
+                    <div class="stat-breakdown">
+                        <span><span class="dot active"></span> Active: <span id="private-active">0</span></span>
+                        <span><span class="dot deleted"></span> Deleted: <span id="private-deleted">0</span></span>
+                    </div>
+                </div>
+
+                <div class="stat-card clickable" onclick="showAllShares('with-commands')">
+                    <div class="stat-header">
+                        <div class="stat-icon gray">⚡</div>
+                    </div>
+                    <div class="stat-label">With Commands</div>
+                    <div class="stat-value" id="shares-with-commands">0</div>
+                    <div class="stat-breakdown">
+                        <span><span class="dot active"></span> Active: <span id="commands-active">0</span></span>
+                        <span><span class="dot deleted"></span> Deleted: <span id="commands-deleted">0</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="content-grid animate-in delay-2">
+            <!-- Projects Section -->
+            <div class="projects-section">
+                <div class="section-header">
+                    <div>
+                        <span class="section-header-title">Public Gallery</span>
+                        <span class="section-header-meta" style="margin-left: 1rem;">
+                            <span id="total-count">0</span> projects · <span id="featured-count">0</span> featured
+                        </span>
+                    </div>
+                </div>
+
+                <div class="filters-section" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-subtle);">
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="search-input" placeholder="Search projects by name...">
+                    </div>
+                    <select id="filter-select" class="filter-select">
+                        <option value="all">All Projects</option>
+                        <option value="featured">Featured Only</option>
+                        <option value="non-featured">Non-Featured</option>
+                        <option value="with-commands">With Commands</option>
+                        <option value="without-commands">Without Commands</option>
+                    </select>
+                </div>
+
+                <div id="projects-grid" class="projects-grid">
+                    <div class="loading-state">
+                        <div class="spinner"></div>
+                        <span>Loading projects...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="user-management-card">
+                    <div class="card-header">
+                        <span class="card-title">User Management</span>
+                        <button class="btn btn-primary" onclick="showCreateUserModal()">+ Add</button>
+                    </div>
+                    <div id="users-list" class="users-list">
+                        <div class="loading-state" style="padding: 2rem;">
+                            <div class="spinner" style="width: 24px; height: 24px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shares Modal -->
+    <div id="shares-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="shares-modal-title">All Shares</h2>
+                <button class="modal-close" onclick="closeSharesModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="shares-search">
+                    <input type="text" id="shares-search-input" placeholder="Search by project name, ID, or date...">
+                </div>
+                <div id="shares-count" style="margin-bottom: 1rem; font-size: 0.875rem; color: var(--text-tertiary);">0 shares</div>
+                <div id="shares-list" class="shares-list">
+                    <div class="loading-state">
+                        <div class="spinner"></div>
+                        <span>Loading shares...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div id="create-user-modal" class="modal">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Create New User</h2>
+                <button class="modal-close" onclick="closeCreateUserModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="create-user-form" onsubmit="handleCreateUser(event)">
+                    <div class="form-group">
+                        <label for="new-username">Username</label>
+                        <input type="text" id="new-username" name="username" placeholder="Enter username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-password">Password</label>
+                        <input type="password" id="new-password" name="password" placeholder="Minimum 6 characters" minlength="6" required>
+                        <small>Must be at least 6 characters long</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-wrapper">
+                            <input type="checkbox" id="new-is-admin" name="is_admin">
+                            <span>Grant admin privileges</span>
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeCreateUserModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Create User</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let token = localStorage.getItem('access_token');
+        let projects = [];
+        let users = [];
+        let shares = [];
+
+        // Auth check
+        async function checkAuth() {
+            if (!token) {
+                window.location.href = '/';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('Unauthorized');
+
+                const user = await response.json();
+                if (!user.is_admin) {
+                    document.body.innerHTML = `
+                        <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:1rem;">
+                            <div style="font-size:4rem;">🔒</div>
+                            <h2 style="color:var(--text-primary);">Admin Access Required</h2>
+                            <p style="color:var(--text-tertiary);">You don't have permission to access this page.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                document.getElementById('admin-email').textContent = user.username;
+                document.getElementById('admin-avatar-initial').textContent = user.username.charAt(0).toUpperCase();
+
+                loadAllData();
+            } catch (err) {
+                localStorage.removeItem('access_token');
+                window.location.href = '/';
+            }
+        }
+
+        // Load all data
+        async function loadAllData() {
+            await Promise.all([
+                loadStats(),
+                loadProjects(),
+                loadUsers()
+            ]);
+        }
+
+        // Load stats
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/shares/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('Failed to load stats');
+
+                const stats = await response.json();
+
+                document.getElementById('total-shares').textContent = stats.total || 0;
+                document.getElementById('total-active').textContent = stats.total_active || 0;
+                document.getElementById('total-deleted').textContent = stats.total_deleted || 0;
+
+                document.getElementById('public-shares').textContent = stats.public || 0;
+                document.getElementById('public-active').textContent = stats.public_active || 0;
+                document.getElementById('public-deleted').textContent = stats.public_deleted || 0;
+
+                document.getElementById('private-shares').textContent = stats.private || 0;
+                document.getElementById('private-active').textContent = stats.private_active || 0;
+                document.getElementById('private-deleted').textContent = stats.private_deleted || 0;
+
+                document.getElementById('shares-with-commands').textContent = stats.with_commands || 0;
+                document.getElementById('commands-active').textContent = stats.with_commands_active || 0;
+                document.getElementById('commands-deleted').textContent = stats.with_commands_deleted || 0;
+            } catch (err) {
+                console.error('Error loading stats:', err);
+            }
+        }
+
+        // Load projects
+        async function loadProjects() {
+            try {
+                const response = await fetch(`${API_BASE}/gallery`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('Failed to load projects');
+
+                projects = await response.json();
+                renderProjects();
+            } catch (err) {
+                console.error('Error loading projects:', err);
+                document.getElementById('projects-grid').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <span>Failed to load projects</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Render projects
+        function renderProjects() {
+            const grid = document.getElementById('projects-grid');
+            const filter = document.getElementById('filter-select').value;
+            const search = document.getElementById('search-input').value.toLowerCase();
+
+            let filtered = projects.filter(p => {
+                if (filter === 'featured') return p.is_featured;
+                if (filter === 'non-featured') return !p.is_featured;
+                if (filter === 'with-commands') return p.total_commands > 0;
+                if (filter === 'without-commands') return p.total_commands === 0;
+                return true;
+            });
+
+            if (search) {
+                filtered = filtered.filter(p =>
+                    p.project_name.toLowerCase().includes(search)
+                );
+            }
+
+            document.getElementById('total-count').textContent = filtered.length;
+            document.getElementById('featured-count').textContent = filtered.filter(p => p.is_featured).length;
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <span>No projects found</span>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(project => `
+                <div class="project-card ${project.is_featured ? 'featured' : ''}">
+                    <div class="project-info">
+                        <div class="project-header">
+                            <span class="project-name">${escapeHtml(project.project_name)}</span>
+                            ${project.is_featured ? '<span class="badge badge-featured">Featured</span>' : ''}
+                            ${project.total_commands > 0 ? '<span class="badge badge-commands">⚡ Commands</span>' : ''}
+                        </div>
+                        <div class="project-meta">
+                            <span>📊 ${project.total_shares} shares</span>
+                            <span>💬 ${project.total_utterances} utterances</span>
+                            ${project.total_commands > 0 ? `<span style="color:var(--accent-teal);">⚡ ${project.total_commands} commands</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="project-actions">
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); toggleFeature(${project.id}, ${!project.is_featured})">
+                            ${project.is_featured ? 'Unfeature' : 'Feature'}
+                        </button>
+                        <button class="btn btn-danger" onclick="event.stopPropagation(); removeProject(${project.id})">Remove</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Toggle feature
+        async function toggleFeature(projectId, feature) {
+            try {
+                const response = await fetch(`${API_BASE}/gallery/${projectId}/feature`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ featured: feature })
+                });
+
+                if (!response.ok) throw new Error('Failed to update');
+
+                const project = projects.find(p => p.id === projectId);
+                if (project) project.is_featured = feature;
+                renderProjects();
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        // Remove project
+        async function removeProject(projectId) {
+            if (!confirm('Are you sure you want to remove this project from the gallery?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/gallery/${projectId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('Failed to remove');
+
+                projects = projects.filter(p => p.id !== projectId);
+                renderProjects();
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        // Load users
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_BASE}/users`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('Failed to load users');
+
+                users = await response.json();
+                renderUsers();
+            } catch (err) {
+                console.error('Error loading users:', err);
+            }
+        }
+
+        // Render users
+        function renderUsers() {
+            const container = document.getElementById('users-list');
+
+            if (users.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" style="padding: 2rem;">
+                        <span style="color:var(--text-tertiary);">No users found</span>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = users.map(user => `
+                <div class="user-item">
+                    <div class="user-info">
+                        <div class="user-avatar ${user.is_admin ? 'admin' : ''}">${user.username.charAt(0).toUpperCase()}</div>
+                        <div class="user-details">
+                            <span class="user-name">${escapeHtml(user.username)}</span>
+                            <span class="user-role">${user.is_admin ? 'Administrator' : 'User'}</span>
+                        </div>
+                    </div>
+                    <div class="user-actions">
+                        <button class="icon-btn" onclick="viewUserShares(${user.id})" title="View Shares">📊</button>
+                        ${!user.is_admin ? `<button class="icon-btn danger" onclick="deleteUser(${user.id})" title="Delete User">🗑️</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // View user shares
+        async function viewUserShares(userId) {
+            try {
+                const response = await fetch(`${API_BASE}/users/${userId}/shares`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('Failed to load shares');
+
+                const shares = await response.json();
+                alert(`User has ${shares.length} shares:\n${shares.map(s => s.project_name).join(', ')}`);
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        // Delete user
+        async function deleteUser(userId) {
+            if (!confirm('Are you sure you want to delete this user?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('Failed to delete user');
+
+                users = users.filter(u => u.id !== userId);
+                renderUsers();
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        // Show all shares modal
+        async function showAllShares(type) {
+            const modal = document.getElementById('shares-modal');
+            const title = document.getElementById('shares-modal-title');
+            const list = document.getElementById('shares-list');
+
+            const titles = {
+                'all': 'All Shares',
+                'public': 'Public Shares',
+                'private': 'Private Shares',
+                'with-commands': 'Shares with Commands'
+            };
+            title.textContent = titles[type] || 'Shares';
+
+            modal.classList.add('active');
+            list.innerHTML = `
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <span>Loading shares...</span>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${API_BASE}/shares?type=${type}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('Failed to load shares');
+
+                shares = await response.json();
+                renderSharesList();
+            } catch (err) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <span>Failed to load shares</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Render shares list
+        function renderSharesList() {
+            const list = document.getElementById('shares-list');
+            const search = document.getElementById('shares-search-input').value.toLowerCase();
+
+            let filtered = shares;
+            if (search) {
+                filtered = shares.filter(s =>
+                    s.project_name.toLowerCase().includes(search) ||
+                    s.id.toString().includes(search)
+                );
+            }
+
+            document.getElementById('shares-count').textContent = `${filtered.length} shares`;
+
+            if (filtered.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <span>No shares found</span>
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = filtered.map(share => `
+                <div class="share-item">
+                    <div class="share-info">
+                        <span class="share-project">${escapeHtml(share.project_name)}</span>
+                        <span class="share-date">${new Date(share.created_at).toLocaleDateString()}</span>
+                        <span class="share-badge ${share.is_public ? 'badge-public' : 'badge-private'}">
+                            ${share.is_public ? 'Public' : 'Private'}
+                        </span>
+                    </div>
+                    <div class="share-actions">
+                        <button class="icon-btn" onclick="window.open('/share/${share.id}', '_blank')">🔗</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Close modals
+        function closeSharesModal() {
+            document.getElementById('shares-modal').classList.remove('active');
+        }
+
+        function showCreateUserModal() {
+            document.getElementById('create-user-modal').classList.add('active');
+            document.getElementById('new-username').focus();
+        }
+
+        function closeCreateUserModal() {
+            document.getElementById('create-user-modal').classList.remove('active');
+            document.getElementById('create-user-form').reset();
+        }
+
+        // Create user
+        async function handleCreateUser(event) {
+            event.preventDefault();
+
+            const username = document.getElementById('new-username').value.trim();
+            const password = document.getElementById('new-password').value;
+            const isAdmin = document.getElementById('new-is-admin').checked;
+
+            if (!username || !password) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            if (password.length < 6) {
+                alert('Password must be at least 6 characters');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/users`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password, is_admin: isAdmin })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to create user');
+                }
+
+                closeCreateUserModal();
+                loadUsers();
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('logout-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                localStorage.removeItem('access_token');
+                window.location.href = '/';
+            });
+
+            document.getElementById('search-input').addEventListener('input', renderProjects);
+            document.getElementById('filter-select').addEventListener('change', renderProjects);
+            document.getElementById('shares-search-input').addEventListener('input', renderSharesList);
+
+            // Close modal on backdrop click
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.classList.remove('active');
+                    }
+                });
+            });
+        });
+
+        checkAuth();
+    </script>
+</body>
+</html>

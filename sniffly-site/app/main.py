@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from api import auth, shares, users
+from app.routers import auth, shares, users
 
 app = FastAPI(title="Sniffly Site API")
 
@@ -16,14 +16,14 @@ app.include_router(auth.router)
 app.include_router(shares.router)
 app.include_router(users.router)
 
-# Get the directory containing this file
-BASE_DIR = Path(__file__).parent.absolute()
+# Get the project root directory (parent of app/)
+BASE_DIR = Path(__file__).parent.parent.absolute()
 
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Serve login page (index.html)."""
-    index_path = BASE_DIR / "index.html"
+    index_path = BASE_DIR / "templates" / "index.html"
     if index_path.exists():
         return FileResponse(str(index_path))
     return HTMLResponse(content="<h1>Sniffly Site</h1><p>Please ensure index.html exists.</p>")
@@ -32,7 +32,7 @@ async def root():
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard():
     """Serve dashboard page."""
-    dashboard_path = BASE_DIR / "dashboard.html"
+    dashboard_path = BASE_DIR / "templates" / "dashboard.html"
     if dashboard_path.exists():
         return FileResponse(str(dashboard_path))
     return HTMLResponse(content="<h1>Dashboard</h1><p>Please ensure dashboard.html exists.</p>", status_code=404)
@@ -41,7 +41,7 @@ async def dashboard():
 @app.get("/share/{share_id}", response_class=HTMLResponse)
 async def share_page(share_id: str):
     """Serve share viewer page."""
-    share_path = BASE_DIR / "share.html"
+    share_path = BASE_DIR / "templates" / "share.html"
     if share_path.exists():
         return FileResponse(str(share_path))
     return HTMLResponse(content="<h1>Share</h1><p>Please ensure share.html exists.</p>", status_code=404)
@@ -50,7 +50,7 @@ async def share_page(share_id: str):
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page():
     """Serve admin page."""
-    admin_path = BASE_DIR / "admin.html"
+    admin_path = BASE_DIR / "templates" / "admin.html"
     if admin_path.exists():
         return FileResponse(str(admin_path))
     return HTMLResponse(content="<h1>Admin</h1><p>Please ensure admin.html exists.</p>", status_code=404)

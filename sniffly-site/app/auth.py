@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from models import User
+from app.models import User
 
 # Configuration
 SECRET_KEY = "your-secret-key-change-in-production"
