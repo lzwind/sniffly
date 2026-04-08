@@ -53,11 +53,8 @@
             <button id="refresh-button" onclick="refreshData()" class="btn-header">
                 🔄 Refresh
             </button>
-            <button id="export-button" onclick="exportDashboard()" class="btn-header">
-                📥 Export
-            </button>
             <button id="share-button" onclick="shareDashboard()" class="btn-header">
-                📤 Share
+                📤 Upload
             </button>
         </div>
     </div>
@@ -1179,7 +1176,7 @@
                 const shareOptions = await showShareOptionsModal();
                 if (!shareOptions) {
                     shareButton.disabled = false;
-                    shareButton.textContent = '📤 Share';
+                    shareButton.textContent = '📤 Upload';
                     return; // User cancelled
                 }
 
@@ -1223,7 +1220,7 @@
                 alert('Failed to create share link: ' + error.message);
             } finally {
                 shareButton.disabled = false;
-                shareButton.textContent = '📤 Share';
+                shareButton.textContent = '📤 Upload';
             }
         }
         

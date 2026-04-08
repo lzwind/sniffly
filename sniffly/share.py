@@ -10,18 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-# Load .env.sniffly.dev for share configuration
-from dotenv import load_dotenv
-
 from .__version__ import __version__
-
-env_file = Path(__file__).parent.parent / ".env.sniffly.dev"
-if env_file.exists():
-    print(f"Loading .env.sniffly.dev from: {env_file}")
-    load_dotenv(env_file)
-    print(f"After loading, ENV = {os.getenv('ENV')}")
-else:
-    print(f".env.sniffly.dev not found at: {env_file}")
 
 logger = logging.getLogger(__name__)
 
@@ -30,31 +19,11 @@ class ShareManager:
     def __init__(self):
         from sniffly.config import Config
         config = Config()
-        
-        # Check environment
-        # For PyPI users, we should default to production mode
-        env = os.getenv("ENV", "PROD" if not env_file.exists() else "DEV")
-        logger.info(f"ShareManager: ENV={env}, env_file={env_file}, exists={env_file.exists()}")
 
-        if env == "DEV":
-            # Development mode
-            # Use config system with fallback to env var for backwards compatibility
-            self.base_url = config.get("share_base_url", os.getenv("SHARE_BASE_URL", "http://localhost:4001"))
-            self.r2_endpoint = os.getenv("SHARE_STORAGE_PATH", "/Users/chip/dev/cc/cc-analysis/fake-r2")
-            self.is_production = False
-            logger.info(f"ShareManager: Development mode, base_url={self.base_url}")
-        else:
-            self.base_url = config.get("share_base_url", "https://sniffly.dev")
-            # For PyPI users, they can't directly access R2
-            # Check if we have R2 credentials
-            if os.getenv("R2_ACCESS_KEY_ID"):
-                # Internal use with direct R2 access
-                self.r2_endpoint = os.getenv("R2_ENDPOINT", "https://r2.sniffly.dev")
-            else:
-                # PyPI users use public API
-                self.r2_endpoint = config.get("share_api_url", "https://sniffly.dev")
-            self.is_production = True
-            logger.info(f"ShareManager: Production mode, base_url={self.base_url}, r2_endpoint={self.r2_endpoint}")
+        # Use config system with fallback to env var for backwards compatibility
+        self.base_url = config.get("share_base_url", os.getenv("SHARE_BASE_URL", "http://localhost:4001"))
+        self.r2_endpoint = os.getenv("SHARE_STORAGE_PATH", "/Users/chip/dev/cc/cc-analysis/fake-r2")
+        logger.info(f"ShareManager: base_url={self.base_url}, storage_path={self.r2_endpoint}")
 
 
     async def create_share_link(
@@ -138,16 +107,11 @@ class ShareManager:
 
     async def _upload_to_storage(self, share_id: str, data: dict[str, Any]):
         """Upload dashboard data to storage"""
-        if self.is_production:
-            # Check if we have R2 credentials (internal use)
-            if os.getenv("R2_ACCESS_KEY_ID"):
-                # Direct R2 upload (for internal/development use)
-                await self._upload_to_r2(share_id, data)
-            else:
-                # Use public API endpoint (for PyPI users)
-                await self._upload_via_api(share_id, data)
+        if os.getenv("R2_ACCESS_KEY_ID"):
+            # Direct R2 upload (when credentials available)
+            await self._upload_to_r2(share_id, data)
         else:
-            # Development: Save to local fake-r2 folder
+            # Default: Save to local storage folder
             storage_dir = Path(self.r2_endpoint)
             storage_dir.mkdir(exist_ok=True)
 
@@ -157,44 +121,13 @@ class ShareManager:
 
             logger.info(f"Saved share data to {file_path}")
 
-    async def _upload_via_api(self, share_id: str, data: dict[str, Any]):
-        """Upload share data via public API endpoint (for PyPI users)"""
-        import httpx
-        
-        # API endpoint for share uploads
-        api_url = f"{self.r2_endpoint}/api/shares"
-        
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                # Prepare the share data with metadata
-                payload = {
-                    "share_id": share_id,
-                    "data": data,
-                    "is_public": data.get("is_public", False),
-                }
-                
-                # POST to the API endpoint
-                response = await client.post(api_url, json=payload)
-                response.raise_for_status()
-                
-                logger.info(f"Uploaded share via API: {share_id}")
-                
-                # Gallery update is handled by the API endpoint itself
-                    
-        except httpx.HTTPError as e:
-            logger.error(f"Failed to upload share via API: {e}")
-            raise Exception(f"Failed to upload share: {str(e)}")
-
     async def _add_to_public_gallery(self, share_id: str, data: dict[str, Any]):
         """Add project to public gallery index"""
-        if self.is_production:
-            # Check if we have R2 credentials (internal use)
-            if os.getenv("R2_ACCESS_KEY_ID"):
-                # Direct R2 update
-                await self._update_r2_gallery(share_id, data)
-            # For API users, gallery update is handled by the API endpoint itself
+        if os.getenv("R2_ACCESS_KEY_ID"):
+            # Direct R2 update (when credentials available)
+            await self._update_r2_gallery(share_id, data)
         else:
-            # Development: Update local gallery file
+            # Default: Update local gallery file
             gallery_file = Path(self.r2_endpoint) / "gallery-index.json"
 
             # Load existing gallery or create new one
@@ -398,11 +331,11 @@ class ShareManager:
             if request_info.get("user_agent"):
                 log_entry["user_agent"] = request_info["user_agent"]
 
-        if self.is_production:
-            # Production: Append to R2 log file
+        if os.getenv("R2_ACCESS_KEY_ID"):
+            # Append to R2 log file (when credentials available)
             await self._append_to_r2_log(log_entry)
         else:
-            # Development: Append to local JSONL file
+            # Default: Append to local JSONL file
             log_file = Path(self.r2_endpoint) / "shares-log.jsonl"
             try:
                 with open(log_file, "a") as f:
