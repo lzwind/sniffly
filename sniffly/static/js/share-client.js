@@ -138,6 +138,45 @@ const ShareClient = {
                 error: error.message || 'Cannot connect to server'
             };
         }
+    },
+
+    /**
+     * Get current user information
+     * @param {string} serverUrl - Server URL
+     * @param {string} token - JWT token
+     * @returns {Promise<Object>} User info result {success, username, isAdmin, error}
+     */
+    async getUserInfo(serverUrl, token) {
+        try {
+            const response = await fetch(`${serverUrl}/api/auth/me`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                return {
+                    success: false,
+                    error: error.detail || `Failed to get user info: ${response.status}`
+                };
+            }
+
+            const data = await response.json();
+            return {
+                success: true,
+                username: data.username,
+                isAdmin: data.is_admin,
+                userId: data.id
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.message || 'Network error'
+            };
+        }
     }
 };
 
