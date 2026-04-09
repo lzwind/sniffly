@@ -34,8 +34,8 @@ class TestSharesCreate:
             json={
                 "project_name": "test-project",
                 "stats": {"views": 10},
-                "user_commands": [
-                    {"timestamp": "2024-01-01T00:00:00", "hash": "abc123"}
+                "messages": [
+                    {"timestamp": "2024-01-01T00:00:00", "type": "user", "uuid": "msg1"}
                 ],
             },
         )
@@ -53,8 +53,8 @@ class TestSharesCreate:
             json={
                 "project_name": "test-get-project",
                 "stats": {"views": 5},
-                "user_commands": [
-                    {"timestamp": "2024-01-01T00:00:00", "hash": "def456"}
+                "messages": [
+                    {"timestamp": "2024-01-01T00:00:00", "type": "user", "uuid": "msg2"}
                 ],
             },
         )
@@ -71,7 +71,7 @@ class TestSharesCreate:
         assert data["uuid"] == uuid
         assert data["project_name"] == "test-get-project"
         assert data["stats"] == {"views": 5}
-        assert len(data["user_commands"]) == 1
+        assert len(data["messages"]) == 1
 
     def test_nonexistent_share(self, docker_services, admin_token, api_client):
         """不存在的分享返回 404."""
@@ -85,19 +85,19 @@ class TestSharesCreate:
 class TestSharesMerge:
     """Test shares merge logic."""
 
-    def test_merge_commands(self, docker_services, admin_token, api_client):
-        """同一项目名再分享，uuid 不变，commands 去重合并."""
+    def test_merge_messages(self, docker_services, admin_token, api_client):
+        """同一项目名再分享，uuid 不变，messages 去重合并."""
         project_name = "merge-test-project"
 
-        # Create first share with command1
+        # Create first share with message1
         response1 = requests.post(
             f"{api_client}/api/shares",
             headers={"Authorization": f"Bearer {admin_token}"},
             json={
                 "project_name": project_name,
                 "stats": {"views": 1},
-                "user_commands": [
-                    {"timestamp": "2024-01-01T00:00:00", "hash": "cmd1"}
+                "messages": [
+                    {"timestamp": "2024-01-01T00:00:00", "type": "user", "uuid": "msg1"}
                 ],
             },
         )
@@ -105,25 +105,25 @@ class TestSharesMerge:
         data1 = response1.json()
         uuid = data1["uuid"]
 
-        # Get share to verify user_commands
+        # Get share to verify messages
         get1_response = requests.get(
             f"{api_client}/api/shares/{uuid}",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert get1_response.status_code == 200
         get1_data = get1_response.json()
-        assert len(get1_data["user_commands"]) == 1
+        assert len(get1_data["messages"]) == 1
 
-        # Create second share with command1 + command2 (command1 is duplicate)
+        # Create second share with message1 + message2 (message1 is duplicate)
         response2 = requests.post(
             f"{api_client}/api/shares",
             headers={"Authorization": f"Bearer {admin_token}"},
             json={
                 "project_name": project_name,
                 "stats": {"views": 2},
-                "user_commands": [
-                    {"timestamp": "2024-01-01T00:00:00", "hash": "cmd1"},  # duplicate
-                    {"timestamp": "2024-01-01T00:01:00", "hash": "cmd2"},  # new
+                "messages": [
+                    {"timestamp": "2024-01-01T00:00:00", "type": "user", "uuid": "msg1"},  # duplicate
+                    {"timestamp": "2024-01-01T00:01:00", "type": "assistant", "uuid": "msg2"},  # new
                 ],
             },
         )
@@ -133,7 +133,7 @@ class TestSharesMerge:
         # Verify uuid is unchanged
         assert data2["uuid"] == uuid
 
-        # Get share to verify commands are merged
+        # Get share to verify messages are merged
         get2_response = requests.get(
             f"{api_client}/api/shares/{uuid}",
             headers={"Authorization": f"Bearer {admin_token}"},
@@ -141,12 +141,12 @@ class TestSharesMerge:
         assert get2_response.status_code == 200
         get2_data = get2_response.json()
 
-        # Verify commands are merged (2 unique commands)
-        assert len(get2_data["user_commands"]) == 2
+        # Verify messages are merged (2 unique messages)
+        assert len(get2_data["messages"]) == 2
 
-        # Verify the commands contain both cmd1 and cmd2
-        hashes = {cmd["hash"] for cmd in get2_data["user_commands"]}
-        assert hashes == {"cmd1", "cmd2"}
+        # Verify the messages contain both msg1 and msg2
+        uuids = {msg["uuid"] for msg in get2_data["messages"]}
+        assert uuids == {"msg1", "msg2"}
 
 
 class TestSharesDelete:
@@ -161,8 +161,8 @@ class TestSharesDelete:
             json={
                 "project_name": "delete-test-project",
                 "stats": {"views": 3},
-                "user_commands": [
-                    {"timestamp": "2024-01-01T00:00:00", "hash": "del123"}
+                "messages": [
+                    {"timestamp": "2024-01-01T00:00:00", "type": "user", "uuid": "del1"}
                 ],
             },
         )

@@ -33,7 +33,7 @@ class Share(Base):
     user_id: int = Column(Integer, ForeignKey("users.id"), nullable=False)
     project_name: str = Column(String(255), nullable=False)
     stats: dict = Column(JSON, nullable=False, default=dict)
-    user_commands: list = Column(JSON, nullable=False, default=list)
+    messages: list = Column(JSON, nullable=False, default=list)
     is_public: bool = Column(Boolean, default=False, nullable=False)
     is_featured: bool = Column(Boolean, default=False, nullable=False)
     created_at: datetime = Column(DateTime, default=datetime.utcnow, nullable=False)
