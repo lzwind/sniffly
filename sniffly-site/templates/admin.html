@@ -1201,16 +1201,11 @@
         let users = [];
         let shares = [];
 
-        // Auth check
+        // Auth check - rely on cookie authentication only
         async function checkAuth() {
-            if (!token) {
-                window.location.href = '/';
-                return;
-            }
-
             try {
                 const response = await fetch(`${API_BASE}/auth/me`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'same-origin'
                 });
 
                 if (!response.ok) throw new Error('Unauthorized');
@@ -1227,12 +1222,14 @@
                     return;
                 }
 
+                // Store token in localStorage for API calls that need Authorization header
+                token = localStorage.getItem('access_token') || 'cookie-auth';
+
                 document.getElementById('admin-email').textContent = user.username;
                 document.getElementById('admin-avatar-initial').textContent = user.username.charAt(0).toUpperCase();
 
                 loadAllData();
             } catch (err) {
-                localStorage.removeItem('access_token');
                 window.location.href = '/';
             }
         }
@@ -1250,7 +1247,7 @@
         async function loadStats() {
             try {
                 const response = await fetch(`${API_BASE}/shares/stats`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'same-origin'
                 });
                 if (!response.ok) throw new Error('Failed to load stats');
 
@@ -1280,7 +1277,7 @@
         async function loadProjects() {
             try {
                 const response = await fetch(`${API_BASE}/gallery`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'same-origin'
                 });
                 if (!response.ok) throw new Error('Failed to load projects');
 
@@ -1360,10 +1357,8 @@
             try {
                 const response = await fetch(`${API_BASE}/gallery/${projectId}/feature`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
                     body: JSON.stringify({ featured: feature })
                 });
 
@@ -1384,7 +1379,7 @@
             try {
                 const response = await fetch(`${API_BASE}/gallery/${projectId}`, {
                     method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'same-origin'
                 });
 
                 if (!response.ok) throw new Error('Failed to remove');
@@ -1400,7 +1395,7 @@
         async function loadUsers() {
             try {
                 const response = await fetch(`${API_BASE}/users`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'same-origin'
                 });
                 if (!response.ok) throw new Error('Failed to load users');
 
@@ -1445,7 +1440,7 @@
         async function viewUserShares(userId) {
             try {
                 const response = await fetch(`${API_BASE}/users/${userId}/shares`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'same-origin'
                 });
 
                 if (!response.ok) throw new Error('Failed to load shares');
@@ -1464,7 +1459,7 @@
             try {
                 const response = await fetch(`${API_BASE}/users/${userId}`, {
                     method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'same-origin'
                 });
 
                 if (!response.ok) throw new Error('Failed to delete user');
@@ -1500,7 +1495,7 @@
 
             try {
                 const response = await fetch(`${API_BASE}/shares?type=${type}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'same-origin'
                 });
 
                 if (!response.ok) throw new Error('Failed to load shares');
@@ -1594,10 +1589,8 @@
             try {
                 const response = await fetch(`${API_BASE}/users`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
                     body: JSON.stringify({ username, password, is_admin: isAdmin })
                 });
 
@@ -1622,9 +1615,17 @@
 
         // Event listeners
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('logout-link').addEventListener('click', (e) => {
+            document.getElementById('logout-link').addEventListener('click', async (e) => {
                 e.preventDefault();
-                localStorage.removeItem('access_token');
+                // Call backend logout to clear cookie
+                try {
+                    await fetch(`${API_BASE}/auth/logout`, {
+                        method: 'POST',
+                        credentials: 'same-origin'
+                    });
+                } catch (err) {
+                    console.error('Logout error:', err);
+                }
                 window.location.href = '/';
             });
 

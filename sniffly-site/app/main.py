@@ -4,16 +4,17 @@ import json
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from app.auth import SessionLocal
+from app.auth import SessionLocal, get_current_user_optional
 from app.models import Share
 from app.routers import auth, shares, users
 from app.routers.shares import get_gallery, get_gallery_project, toggle_feature_project
+from fastapi.responses import RedirectResponse
 
 app = FastAPI(title="Sniffly Site API")
 
@@ -41,8 +42,14 @@ BASE_DIR = Path(__file__).parent.parent.absolute()
 
 
 @app.get("/", response_class=HTMLResponse)
-async def root():
-    """Serve login page (login.html)."""
+async def root(
+    request: Request,
+    current_user=Depends(get_current_user_optional),
+):
+    """Serve login page (login.html) or redirect to admin if logged in."""
+    if current_user:
+        return RedirectResponse(url="/admin", status_code=302)
+
     login_path = BASE_DIR / "templates" / "login.html"
     if login_path.exists():
         return FileResponse(str(login_path))

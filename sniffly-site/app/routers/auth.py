@@ -1,11 +1,12 @@
 """Authentication API endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.auth import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
     authenticate_user,
     create_access_token,
     get_current_user,
@@ -56,7 +57,11 @@ async def login_for_access_token(
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login_json(login_data: LoginRequest, db: Session = Depends(get_db)):
+async def login_json(
+    response: Response,
+    login_data: LoginRequest,
+    db: Session = Depends(get_db)
+):
     """JSON login endpoint for web frontend."""
     user = authenticate_user(db, login_data.username, login_data.password)
     if not user:
@@ -64,12 +69,22 @@ async def login_json(login_data: LoginRequest, db: Session = Depends(get_db)):
     access_token = create_access_token(
         data={"sub": user.username, "user_id": user.id, "is_admin": user.is_admin}
     )
+    # Set cookie for browser-based auth
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False,  # Set to True in production with HTTPS
+        samesite="lax",
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
     return TokenResponse(access_token=access_token, token_type="bearer")
 
 
 @router.post("/logout")
-async def logout(current_user: User = Depends(get_current_user)):
-    """Logout endpoint (client should discard token)."""
+async def logout(response: Response, current_user: User = Depends(get_current_user)):
+    """Logout endpoint - clears cookie and client should discard token."""
+    response.delete_cookie(key="access_token")
     return {"message": "Successfully logged out"}
 
 
