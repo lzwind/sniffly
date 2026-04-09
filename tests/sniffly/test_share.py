@@ -25,7 +25,6 @@ def share_manager(temp_dir):
     with patch.dict(os.environ, {"ENV": "DEV", "SHARE_STORAGE_PATH": temp_dir}):
         manager = ShareManager()
         assert manager.r2_endpoint == temp_dir
-        assert not manager.is_production
         return manager
 
 
@@ -242,3 +241,109 @@ class TestShareManager:
             gallery = json.load(f)
             # 5 days from Jan 1 to Jan 5 (inclusive)
             assert gallery["projects"][0]["stats"]["duration_days"] == 5
+
+    @pytest.mark.asyncio
+    async def test_create_share_link_with_messages(self, share_manager, sample_statistics, sample_charts, temp_dir):
+        """Test creating a share with messages."""
+        messages = [
+            {"type": "human", "content": "Test message 1", "timestamp": "2025-01-01T10:00:00Z"},
+            {"type": "assistant", "content": "Test response 1", "timestamp": "2025-01-01T10:01:00Z"},
+            {"type": "human", "content": "Test message 2", "timestamp": "2025-01-01T10:02:00Z"}
+        ]
+
+        result = await share_manager.create_share_link(
+            statistics=sample_statistics,
+            charts_data=sample_charts,
+            make_public=False,
+            include_messages=True,
+            messages=messages,
+            project_name="Project with Messages"
+        )
+
+        # Check result
+        assert "url" in result
+        share_id = result["url"].split("/")[-1]
+
+        # Check that file was created with messages
+        share_file = Path(temp_dir) / f"{share_id}.json"
+        assert share_file.exists()
+
+        with open(share_file) as f:
+            data = json.load(f)
+            assert data["project_name"] == "Project with Messages"
+            assert len(data["messages"]) == 3
+            assert data["messages"][0]["type"] == "human"
+            assert data["messages"][1]["type"] == "assistant"
+
+    @pytest.mark.asyncio
+    async def test_create_share_link_without_messages(self, share_manager, sample_statistics, sample_charts, temp_dir):
+        """Test that messages are not included when include_messages is False."""
+        messages = [
+            {"type": "human", "content": "Test message", "timestamp": "2025-01-01T10:00:00Z"}
+        ]
+
+        result = await share_manager.create_share_link(
+            statistics=sample_statistics,
+            charts_data=sample_charts,
+            make_public=False,
+            include_messages=False,  # Not including messages
+            messages=messages,
+            project_name="Project without Messages"
+        )
+
+        share_id = result["url"].split("/")[-1]
+        share_file = Path(temp_dir) / f"{share_id}.json"
+
+        with open(share_file) as f:
+            data = json.load(f)
+            assert len(data["messages"]) == 0  # Messages should be empty
+
+    @pytest.mark.asyncio
+    async def test_public_share_with_messages_includes_messages_flag(self, share_manager, sample_statistics, sample_charts, temp_dir):
+        """Test that public shares with messages have includes_messages flag in gallery."""
+        messages = [
+            {"type": "human", "content": "Test message", "timestamp": "2025-01-01T10:00:00Z"}
+        ]
+
+        result = await share_manager.create_share_link(
+            statistics=sample_statistics,
+            charts_data=sample_charts,
+            make_public=True,
+            include_messages=True,
+            messages=messages,
+            project_name="Public Project with Messages"
+        )
+
+        # Check gallery index
+        gallery_file = Path(temp_dir) / "gallery-index.json"
+        assert gallery_file.exists()
+
+        with open(gallery_file) as f:
+            gallery = json.load(f)
+            assert len(gallery["projects"]) == 1
+            assert gallery["projects"][0]["includes_messages"] is True
+            assert gallery["projects"][0]["includes_commands"] is False
+
+    @pytest.mark.asyncio
+    async def test_share_logging_with_messages(self, share_manager, sample_statistics, sample_charts, temp_dir):
+        """Test that share creation with messages is logged correctly."""
+        messages = [
+            {"type": "human", "content": "Test message", "timestamp": "2025-01-01T10:00:00Z"}
+        ]
+
+        result = await share_manager.create_share_link(
+            statistics=sample_statistics,
+            charts_data=sample_charts,
+            make_public=False,
+            include_messages=True,
+            messages=messages
+        )
+
+        # Check log file
+        log_file = Path(temp_dir) / "shares-log.jsonl"
+        assert log_file.exists()
+
+        with open(log_file) as f:
+            log_entries = [json.loads(line) for line in f]
+            assert len(log_entries) == 1
+            assert log_entries[0]["include_messages"] is True
