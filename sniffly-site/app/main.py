@@ -42,20 +42,11 @@ BASE_DIR = Path(__file__).parent.parent.absolute()
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    """Serve login page (index.html)."""
-    index_path = BASE_DIR / "templates" / "index.html"
-    if index_path.exists():
-        return FileResponse(str(index_path))
-    return HTMLResponse(content="<h1>Sniffly Site</h1><p>Please ensure index.html exists.</p>")
-
-
-@app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard():
-    """Serve dashboard page."""
-    dashboard_path = BASE_DIR / "templates" / "dashboard.html"
-    if dashboard_path.exists():
-        return FileResponse(str(dashboard_path))
-    return HTMLResponse(content="<h1>Dashboard</h1><p>Please ensure dashboard.html exists.</p>", status_code=404)
+    """Serve login page (login.html)."""
+    login_path = BASE_DIR / "templates" / "login.html"
+    if login_path.exists():
+        return FileResponse(str(login_path))
+    return HTMLResponse(content="<h1>Sniffly Site</h1><p>Please ensure login.html exists.</p>")
 
 
 @app.get("/share/{share_id}", response_class=HTMLResponse)
