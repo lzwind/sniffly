@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS shares (
     user_id INT NOT NULL,
     project_name VARCHAR(255) NOT NULL,
     stats JSON NOT NULL,
-    user_commands JSON NOT NULL,
+    messages JSON NOT NULL,
     is_public BOOLEAN NOT NULL DEFAULT FALSE,
     is_featured BOOLEAN NOT NULL DEFAULT FALSE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

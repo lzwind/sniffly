@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/shares", tags=["shares"])
 class ShareCreateRequest(BaseModel):
     project_name: str
     stats: dict
-    user_commands: list
+    messages: list = []
 
 
 class ShareResponse(BaseModel):
@@ -34,7 +34,7 @@ class ShareDetailResponse(BaseModel):
     uuid: str
     project_name: str
     stats: dict
-    user_commands: list
+    messages: list
     is_public: bool
     created_at: datetime
     updated_at: datetime
@@ -43,21 +43,48 @@ class ShareDetailResponse(BaseModel):
         from_attributes = True
 
 
-def merge_user_commands(existing: list, new: list) -> list:
-    """Merge user_commands by timestamp + content hash deduplication."""
+def merge_messages(existing: list, new: list) -> list:
+    """Merge messages by uuid + timestamp deduplication.
+
+    Messages are deduplicated based on:
+    - uuid: if available (most reliable)
+    - fallback: timestamp + type + content preview (first 200 chars)
+    """
     seen = set()
     merged = list(existing)
 
-    for cmd in new:
-        key = (cmd.get("timestamp"), cmd.get("hash"))
-        if key and key not in seen:
+    for msg in new:
+        # Use uuid as primary key if available
+        msg_uuid = msg.get("uuid")
+        timestamp = msg.get("timestamp")
+
+        if msg_uuid:
+            key = ("uuid", msg_uuid)
+        else:
+            # Fallback: use timestamp + type + content preview
+            content = msg.get("content", "")[:200]
+            msg_type = msg.get("type", "unknown")
+            key = ("content", timestamp, msg_type, content)
+
+        if key not in seen:
             seen.add(key)
-            exists = any(
-                c.get("timestamp") == cmd.get("timestamp") and c.get("hash") == cmd.get("hash")
-                for c in existing
-            )
+            # Check if exists in existing
+            exists = False
+            if msg_uuid:
+                exists = any(
+                    m.get("uuid") == msg_uuid for m in existing
+                )
+            else:
+                content_preview = msg.get("content", "")[:200]
+                msg_type = msg.get("type", "unknown")
+                exists = any(
+                    m.get("timestamp") == timestamp and
+                    m.get("type") == msg_type and
+                    m.get("content", "")[:200] == content_preview
+                    for m in existing
+                )
             if not exists:
-                merged.append(cmd)
+                merged.append(msg)
 
     merged.sort(key=lambda x: x.get("timestamp", ""))
     return merged
@@ -88,7 +115,7 @@ async def create_or_update_share(
 
     if existing:
         existing.stats = share_data.stats
-        existing.user_commands = merge_user_commands(existing.user_commands, share_data.user_commands)
+        existing.messages = merge_messages(existing.messages, share_data.messages)
         existing.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(existing)
@@ -100,7 +127,7 @@ async def create_or_update_share(
             user_id=current_user.id,
             project_name=share_data.project_name,
             stats=share_data.stats,
-            user_commands=share_data.user_commands,
+            messages=share_data.messages,
         )
         db.add(new_share)
         db.commit()
@@ -117,7 +144,7 @@ async def get_shares_stats(
     total = db.query(Share).count()
     public = db.query(Share).filter(Share.is_public == True).count()
     private = total - public
-    with_commands = db.query(Share).filter(Share.user_commands != []).count()
+    with_messages = db.query(Share).filter(Share.messages != []).count()
 
     return {
         "total": total,
@@ -129,8 +156,8 @@ async def get_shares_stats(
         "private": private,
         "private_active": private,
         "private_deleted": 0,
-        "with_commands": with_commands,
-        "with_commands_active": with_commands,
+        "with_messages": with_messages,
+        "with_messages_active": with_messages,
     }
 
 
@@ -189,7 +216,7 @@ async def get_gallery_project(
         "project_name": share.project_name,
         "is_featured": share.is_featured,
         "stats": share.stats,
-        "user_commands": share.user_commands,
+        "messages": share.messages,
         "created_at": share.created_at.isoformat() if share.created_at else None,
         "updated_at": share.updated_at.isoformat() if share.updated_at else None,
     }
@@ -228,7 +255,7 @@ async def get_public_share(share_uuid: str, db: Session = Depends(get_db)):
         "uuid": share.uuid,
         "project_name": share.project_name,
         "stats": share.stats,
-        "user_commands": share.user_commands,
+        "messages": share.messages,
         "created_at": share.created_at,
         "updated_at": share.updated_at,
     }

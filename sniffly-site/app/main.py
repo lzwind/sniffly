@@ -74,7 +74,7 @@ async def share_page(share_id: str):
         share_data = {
             "project_name": share.project_name,
             "stats": share.stats,
-            "user_commands": share.user_commands,
+            "messages": share.messages,
         }
 
         # Read template and inject data

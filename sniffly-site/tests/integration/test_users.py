@@ -159,8 +159,8 @@ class TestUserShares:
             json={
                 "project_name": "test-share-project",
                 "stats": {"views": 10},
-                "user_commands": [
-                    {"timestamp": "2024-01-01T00:00:00", "hash": "abc123"}
+                "messages": [
+                    {"timestamp": "2024-01-01T00:00:00", "type": "user", "uuid": "msg123"}
                 ],
             },
         )
