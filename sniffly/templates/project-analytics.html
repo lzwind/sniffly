@@ -1257,7 +1257,7 @@
                 const shareData = {
                     project_name: shareOptions.projectName,
                     stats: window.statistics,
-                    user_commands: shareOptions.includeCommands ? (window.userCommands || []) : []
+                    messages: shareOptions.includeMessages ? (window.messages || []) : []
                 };
 
                 // Fetch and filter messages if requested
@@ -1447,15 +1447,6 @@
                                     <input type="checkbox" id="include-stats-checkbox" checked disabled class="share-checkbox">
                                     <div>
                                         <span class="share-option-label">📊 Statistics & Charts</span>
-                                    </div>
-                                </label>
-
-                                <label class="share-option-container">
-                                    <input type="checkbox" id="include-commands-checkbox" checked class="share-checkbox">
-                                    <div>
-                                        <span class="share-option-label">📝 User Commands Table</span>
-                                        <br>
-                                        <small class="share-option-description">确保不包含敏感信息！</small>
                                     </div>
                                 </label>
 
@@ -1669,7 +1660,6 @@
 
                 window.doShare = async () => {
                     const projectName = document.getElementById('project-name-input').value.trim() || 'Untitled Project';
-                    const includeCommands = document.getElementById('include-commands-checkbox').checked;
                     const includeMessages = document.getElementById('include-messages-checkbox').checked;
 
                     // Get messages filter options
@@ -1680,7 +1670,6 @@
 
                     resolve({
                         projectName,
-                        includeCommands,
                         includeMessages,
                         messageTypes,
                         dateRange,

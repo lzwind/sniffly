@@ -182,3 +182,76 @@ class TestSharesDelete:
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert get_response.status_code == 404
+
+
+class TestSharesFrontendCompat:
+    """Test shares API compatibility with frontend payload."""
+
+    def test_create_share_with_frontend_payload(self, docker_services, admin_token, api_client):
+        """模拟前端发送的数据格式: stats + messages (无 user_commands)."""
+        # 前端 shareDashboard 发送的数据格式
+        frontend_payload = {
+            "project_name": "frontend-test-project",
+            "stats": {
+                "overview": {"total_messages": 100, "project_name": "Test Project"},
+                "user_interactions": {"user_commands_analyzed": 50},
+            },
+            "messages": [
+                {
+                    "uuid": "msg-001",
+                    "type": "human",
+                    "content": "Hello",
+                    "timestamp": "2024-01-01T10:00:00",
+                    "model": "claude-3-5-sonnet",
+                    "tokens": 100,
+                },
+                {
+                    "uuid": "msg-002",
+                    "type": "assistant",
+                    "content": "Hi there!",
+                    "timestamp": "2024-01-01T10:00:01",
+                    "model": "claude-3-5-sonnet",
+                    "tokens": 50,
+                },
+            ],
+        }
+        response = requests.post(
+            f"{api_client}/api/shares",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json=frontend_payload,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "uuid" in data
+        assert data["project_name"] == "frontend-test-project"
+        # Verify messages are stored correctly
+        get_response = requests.get(
+            f"{api_client}/api/shares/{data['uuid']}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert get_response.status_code == 200
+        share_data = get_response.json()
+        assert len(share_data["messages"]) == 2
+        assert share_data["messages"][0]["uuid"] == "msg-001"
+
+    def test_create_share_stats_only(self, docker_services, admin_token, api_client):
+        """只发送 stats，不发送 messages."""
+        response = requests.post(
+            f"{api_client}/api/shares",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={
+                "project_name": "stats-only-project",
+                "stats": {"overview": {"total_messages": 0}},
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "uuid" in data
+
+        # Verify messages is empty array
+        get_response = requests.get(
+            f"{api_client}/api/shares/{data['uuid']}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert get_response.status_code == 200
+        assert get_response.json()["messages"] == []
