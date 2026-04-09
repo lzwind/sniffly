@@ -33,6 +33,8 @@ class ShareManager:
         make_public: bool = False,
         include_commands: bool = False,
         user_commands: list = None,
+        include_messages: bool = False,
+        messages: list = None,
         project_name: str = None,
         request_info: dict = None,
     ) -> dict[str, Any]:
@@ -46,6 +48,7 @@ class ShareManager:
             "statistics": self._sanitize_statistics(statistics),
             "charts": charts_data,  # Now expects chart configurations, not images
             "user_commands": user_commands if include_commands else [],
+            "messages": messages if include_messages else [],
             "version": __version__,
             "is_public": make_public,
             "title": (project_name or self._generate_title(statistics)) if make_public else None,
@@ -162,6 +165,7 @@ class ShareManager:
                     "project_name": data.get("project_name", "Unknown Project"),
                     "created_at": data["created_at"],
                     "includes_commands": len(data.get("user_commands", [])) > 0,
+                    "includes_messages": len(data.get("messages", [])) > 0,
                     "stats": {
                         "total_commands": stats.get("user_interactions", {}).get("user_commands_analyzed", 0),
                         "total_tokens": total_token_count,
@@ -283,6 +287,7 @@ class ShareManager:
                     "project_name": data.get("project_name", "Unknown Project"),
                     "created_at": data["created_at"],
                     "includes_commands": len(data.get("user_commands", [])) > 0,
+                    "includes_messages": len(data.get("messages", [])) > 0,
                     "stats": {
                         "total_commands": stats.get("user_interactions", {}).get("user_commands_analyzed", 0),
                         "total_tokens": total_token_count,
@@ -320,6 +325,7 @@ class ShareManager:
             "is_public": data.get("is_public", False),
             "project_name": data.get("project_name", "Unknown"),
             "include_commands": len(data.get("user_commands", [])) > 0,
+            "include_messages": len(data.get("messages", [])) > 0,
         }
 
         # Add request info if provided

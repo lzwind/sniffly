@@ -1170,6 +1170,8 @@ async def create_share_link(data: dict[str, Any], request: Request):
             make_public=data.get("make_public", False),
             include_commands=data.get("include_commands", False),
             user_commands=data.get("user_commands", []),
+            include_messages=data.get("include_messages", False),
+            messages=data.get("messages", []),
             project_name=data.get("project_name"),
             request_info=request_info,
         )
