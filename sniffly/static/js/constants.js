@@ -1,4 +1,4 @@
-// Constants for Claude Analytics Dashboard
+// Constants for Claude Analytics
 
 // User interruption patterns
 const USER_INTERRUPTION_PREFIX = '[Request interrupted by user for tool use]';

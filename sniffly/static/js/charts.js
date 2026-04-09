@@ -1,4 +1,4 @@
-// Chart functions for Claude Analytics Dashboard
+// Chart functions for Claude Analytics
 // This module contains all chart initialization and configuration
 //
 // IMPORTANT: Chart Time Range Behavior

@@ -1,4 +1,4 @@
-// Export functionality for Claude Analytics Dashboard
+// Export functionality for Claude Analytics
 
 const ExportModule = {
   // Export the dashboard to a ZIP file containing PDF report and chart images
@@ -494,7 +494,7 @@ const ExportModule = {
     }
     
     // Map chart instance names to their display names
-    // Order matches dashboard.html chart order
+    // Order matches project-analytics.html chart order
     const chartMap = {
       commandComplexity: { name: 'commandComplexityChart', id: 'command-complexity-chart' },
       commandLength: { name: 'commandLengthChart', id: 'command-length-chart' },

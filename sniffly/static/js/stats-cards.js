@@ -1,4 +1,4 @@
-// Stats cards module - shared between dashboard.html and share-viewer.js
+// Stats cards module - shared between project-analytics.html and share-viewer.js
 
 window.StatsCardsModule = {
   displayOverviewStats: function(statistics) {

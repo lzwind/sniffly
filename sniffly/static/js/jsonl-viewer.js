@@ -1,4 +1,4 @@
-// JSONL Viewer Module for Claude Analytics Dashboard
+// JSONL Viewer Module for Claude Analytics
 
 const JsonlViewer = (function() {
   // Private state

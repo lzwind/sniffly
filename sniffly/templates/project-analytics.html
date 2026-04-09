@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Claude Code Analytics Dashboard</title>
+    <title>Claude Code Analytics</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1443,37 +1443,18 @@
             });
         }
         
-        // Show share link modal
+        // Show share success modal
         function showShareModal(url) {
             const modal = document.createElement('div');
             modal.className = 'modal';
             modal.style.display = 'block';
             modal.innerHTML = `
-                <div class="modal-content share-link-modal">
+                <div class="modal-content share-link-modal" style="text-align: center; padding: 2rem;">
                     <h3 class="share-modal-title">分享成功！</h3>
-                    <p class="share-modal-description">您的 Dashboard 已成功分享。</p>
-
-                    <div class="share-link-container">
-                        <input type="text" value="${url}" readonly class="share-link-input"
-                               onclick="this.select(); navigator.clipboard.writeText(this.value).then(() => {
-                                   const toast = document.createElement('div');
-                                   toast.textContent = '已复制!';
-                                   toast.style.cssText = 'position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #f3f4f6; color: #374151; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.9rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 1000;';
-                                   this.parentElement.style.position = 'relative';
-                                   this.parentElement.appendChild(toast);
-                                   setTimeout(() => toast.remove(), 2000);
-                               });">
-                    </div>
-
-                    <div class="share-link-footer">
-                        <div class="share-link-info">
-                            <span class="share-link-info-icon">🔒</span>
-                            私有分享链接<br>
-                        </div>
-                        <button onclick="window.closeShareModal()" class="modal-button-done">
-                            完成
-                        </button>
-                    </div>
+                    <p class="share-modal-description">您的 Project 已成功分享。</p>
+                    <button onclick="window.closeShareModal()" class="modal-button-done" style="margin-top: 1rem;">
+                        完成
+                    </button>
                 </div>
             `;
 

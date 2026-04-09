@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FastAPI application for Claude Analytics Dashboard Local Mode
+FastAPI application for Claude Analytics Local Mode
 """
 
 import asyncio
@@ -50,7 +50,7 @@ except importlib.metadata.PackageNotFoundError:
 
 # Create FastAPI app
 app = FastAPI(
-    title="Claude Analytics Dashboard - Local Mode",
+    title="Claude Analytics - Local Mode",
     description="Analyze your Claude AI logs directly from your local machine",
     version=__version__,
 )
@@ -174,24 +174,16 @@ async def root():
     overview_path = os.path.join(BASE_DIR, "templates", "overview.html")
     # Fallback to dashboard if overview doesn't exist yet
     if not os.path.exists(overview_path):
-        return FileResponse(os.path.join(BASE_DIR, "templates", "dashboard.html"))
+        return FileResponse(os.path.join(BASE_DIR, "templates", "project-analytics.html"))
     return FileResponse(overview_path)
-
-
-# Dashboard page
-@app.get("/dashboard.html")
-async def dashboard_page():
-    """Serve the dashboard page"""
-    return FileResponse(os.path.join(BASE_DIR, "templates", "dashboard.html"))
-
 
 # Project-specific dashboard URLs
 @app.get("/project/{project_name:path}")
-async def project_dashboard(project_name: str):
-    """Serve the dashboard for a specific project"""
+async def project_analytics(project_name: str):
+    """Serve the project-analytics for a specific project"""
     # The project_name is the directory name from .claude/projects
-    # The dashboard.html will use JavaScript to extract this from the URL
-    return FileResponse(os.path.join(BASE_DIR, "templates", "dashboard.html"))
+    # The project-analytics.html will use JavaScript to extract this from the URL
+    return FileResponse(os.path.join(BASE_DIR, "templates", "project-analytics.html"))
 
 
 # Set project endpoint

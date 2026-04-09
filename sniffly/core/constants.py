@@ -14,9 +14,9 @@ USER_INTERRUPTION_API_ERROR = "API Error: Request was aborted."
 # List of all interruption patterns for easier checking
 USER_INTERRUPTION_PATTERNS = [USER_INTERRUPTION_PREFIX, USER_INTERRUPTION_API_ERROR]
 
-# Note: The USER_INTERRUPTION_PREFIX constant is also defined in dashboard.html JavaScript
+# Note: The USER_INTERRUPTION_PREFIX constant is also defined in project-analytics.html JavaScript
 # If you update this, also update the USER_INTERRUPTION_PREFIX constant in:
-# - sniffly/shared/templates/dashboard.html
+# - sniffly/shared/templates/project-analytics.html
 
 """
 Central definitions of all error-detection patterns.

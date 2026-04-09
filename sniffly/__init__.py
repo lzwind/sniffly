@@ -1,4 +1,4 @@
-"""Sniffly - Claude Code Analytics Dashboard"""
+"""Sniffly - Claude Code Analytics"""
 
 import importlib.metadata
 

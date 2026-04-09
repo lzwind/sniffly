@@ -1,4 +1,4 @@
-// Memory monitoring utility for Claude Analytics Dashboard
+// Memory monitoring utility for Claude Analytics
 
 const MemoryMonitor = {
   // Track memory usage of different components

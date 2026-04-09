@@ -1,6 +1,6 @@
-// Statistics functions for Claude Analytics Dashboard
+// Statistics functions for Claude Analytics
 // This module contains pure data processing and calculation functions
-// extracted from dashboard.html for better organization and reusability
+// extracted from project-analytics.html for better organization and reusability
 
 // Date and Time Calculations
 function calculateDateRange(statistics) {

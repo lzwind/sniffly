@@ -50,7 +50,7 @@ def cli():
 @click.option("--no-browser", is_flag=True, help="Don't open browser automatically")
 @click.option("--clear-cache", is_flag=True, help="Clear all caches before starting")
 def init(port, host, no_browser, clear_cache):
-    """Start the analytics dashboard"""
+    """Start the analytics"""
     # Clear cache if requested
     if clear_cache:
         import shutil
@@ -262,7 +262,7 @@ def is_first_run():
 def handle_first_run_setup():
     """Handle first-run setup"""
     click.echo("\n🍋 Welcome to Sniffly!")
-    click.echo("Your Claude Code analytics dashboard\n")
+    click.echo("Your Claude Code analytics\n")
 
     # Save config for next time
     config_path = Path.home() / ".sniffly" / "config.json"

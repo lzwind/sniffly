@@ -1,4 +1,4 @@
-// Utility functions for Claude Analytics Dashboard
+// Utility functions for Claude Analytics
 
 // Format large numbers with K/M suffixes
 function formatNumber(num) {
