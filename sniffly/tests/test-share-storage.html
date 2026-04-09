@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ShareStorage Tests</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .test { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .pass { background: #d4edda; color: #155724; }
+        .fail { background: #f8d7da; color: #721c24; }
+        h2 { margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <h1>ShareStorage Tests</h1>
+    <div id="results"></div>
+
+    <script src="../static/js/share-storage.js?v=2"></script>
+    <script>
+        const results = document.getElementById('results');
+        let passCount = 0;
+        let failCount = 0;
+
+        function test(name, fn) {
+            try {
+                fn();
+                passCount++;
+                results.innerHTML += `<div class="test pass">✓ ${name}</div>`;
+            } catch (e) {
+                failCount++;
+                results.innerHTML += `<div class="test fail">✗ ${name}<br>${e.message}</div>`;
+            }
+        }
+
+        function assertEqual(actual, expected, msg) {
+            if (actual !== expected) {
+                throw new Error(`${msg}: expected ${expected}, got ${actual}`);
+            }
+        }
+
+        function assertTrue(value, msg) {
+            if (!value) {
+                throw new Error(`${msg}: expected true, got ${value}`);
+            }
+        }
+
+        // 清理测试数据
+        localStorage.removeItem('sniffly_auth');
+        localStorage.removeItem('sniffly_servers');
+        localStorage.removeItem('sniffly_tokens');
+
+        // 测试 saveAuth 和 getAuth
+        test('saveAuth should store auth data', () => {
+            ShareStorage.saveAuth('http://localhost:8080', 'testuser', 'token123', 604800);
+            const auth = ShareStorage.getAuth();
+            assertEqual(auth.serverUrl, 'http://localhost:8080', 'serverUrl');
+            assertEqual(auth.username, 'testuser', 'username');
+            assertEqual(auth.token, 'token123', 'token');
+            assertTrue(auth.expiresAt !== null, 'expiresAt should exist');
+        });
+
+        test('getAuth should return null when no auth', () => {
+            localStorage.removeItem('sniffly_auth');
+            const auth = ShareStorage.getAuth();
+            assertEqual(auth, null, 'auth should be null');
+        });
+
+        test('getAuth should return null for expired token', () => {
+            ShareStorage.saveAuth('http://localhost:8080', 'testuser', 'token123', 1); // 1秒过期
+            // 模拟过期
+            const auth = JSON.parse(localStorage.getItem('sniffly_auth'));
+            auth.expiresAt = new Date(Date.now() - 1000).toISOString();
+            localStorage.setItem('sniffly_auth', JSON.stringify(auth));
+
+            const result = ShareStorage.getAuth();
+            assertEqual(result, null, 'expired auth should return null');
+        });
+
+        test('clearAuth should remove auth', () => {
+            ShareStorage.saveAuth('http://localhost:8080', 'testuser', 'token123', 604800);
+            ShareStorage.clearAuth();
+            const auth = ShareStorage.getAuth();
+            assertEqual(auth, null, 'auth should be cleared');
+        });
+
+        test('refreshAuthTimestamp should update expiresAt', () => {
+            ShareStorage.saveAuth('http://localhost:8080', 'testuser', 'token123', 604800);
+            const oldAuth = ShareStorage.getAuth();
+            const oldExpires = oldAuth.expiresAt;
+
+            // 等待一小段时间
+            const start = Date.now();
+            while (Date.now() - start < 50) {} // 忙等50ms
+
+            ShareStorage.refreshAuthTimestamp(604800);
+            const newAuth = ShareStorage.getAuth();
+            assertTrue(newAuth.expiresAt !== oldExpires, 'expiresAt should be updated');
+            assertTrue(new Date(newAuth.expiresAt) > new Date(oldExpires), 'new expiresAt should be later');
+        });
+
+        // 显示总结
+        results.innerHTML += `<h2>Summary: ${passCount} passed, ${failCount} failed</h2>`;
+    </script>
+</body>
+</html>
