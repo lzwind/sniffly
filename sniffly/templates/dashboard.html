@@ -1169,10 +1169,10 @@
         async function shareDashboard() {
             const shareButton = document.getElementById('share-button');
             shareButton.disabled = true;
-            shareButton.textContent = 'Creating link...';
+            shareButton.textContent = '处理中...';
 
             try {
-                // Show share options modal
+                // Show share options modal (handles both authorized and unauthorized states)
                 const shareOptions = await showShareOptionsModal();
                 if (!shareOptions) {
                     shareButton.disabled = false;
@@ -1180,13 +1180,9 @@
                     return; // User cancelled
                 }
 
-                // Extract chart configurations instead of PNG images
-                const charts = ExportModule.getChartConfigurations();
+                shareButton.textContent = '上传中...';
 
-                // Generate share_id
-                const shareId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
-
-                // Create share link on the selected server with JWT token
+                // Create share on the server
                 const response = await fetch(`${shareOptions.serverUrl}/api/shares`, {
                     method: 'POST',
                     headers: {
@@ -1194,30 +1190,36 @@
                         'Authorization': `Bearer ${shareOptions.token}`
                     },
                     body: JSON.stringify({
-                        share_id: shareId,
-                        data: {
-                            statistics: window.statistics,
-                            charts: charts,
-                            user_commands: shareOptions.includeCommands ? (window.userCommands || []) : [],
-                            version: '0.1.5',
-                            is_public: shareOptions.makePublic,
-                            project_name: shareOptions.projectName
-                        }
+                        project_name: shareOptions.projectName,
+                        stats: window.statistics,
+                        user_commands: shareOptions.includeCommands ? (window.userCommands || []) : []
                     })
                 });
 
                 if (!response.ok) {
+                    // If 401, token might be expired - clear auth and retry
+                    if (response.status === 401) {
+                        window.ShareStorage.clearAuth();
+                        alert('授权已过期，请重新授权');
+                        shareButton.disabled = false;
+                        shareButton.textContent = '📤 Upload';
+                        return;
+                    }
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || 'Failed to create share');
+                    throw new Error(errorData.detail || '分享失败');
                 }
 
                 const data = await response.json();
 
-                // Show share modal with link (no expiration date)
-                showShareModal(data.url, data.is_public);
+                // Refresh auth timestamp (active user renewal)
+                window.ShareStorage.refreshAuthTimestamp(604800);
+
+                // Show share link
+                const shareUrl = `${shareOptions.serverUrl}/share/${data.uuid}`;
+                showShareModal(shareUrl);
 
             } catch (error) {
-                alert('Failed to create share link: ' + error.message);
+                alert('分享失败: ' + error.message);
             } finally {
                 shareButton.disabled = false;
                 shareButton.textContent = '📤 Upload';
@@ -1227,210 +1229,209 @@
         // Share options modal
         async function showShareOptionsModal() {
             return new Promise((resolve) => {
+                // Check if already authorized
+                const auth = window.ShareStorage ? window.ShareStorage.getAuth() : null;
+                const isAuthorized = auth !== null;
+
                 // Get the default project name
                 const defaultProjectName = window.statistics?.overview?.log_dir_name ||
                                          window.statistics?.overview?.project_name ||
                                          'Untitled Project';
 
-                // Get saved servers from LocalStorage
-                const savedServers = JSON.parse(localStorage.getItem('sniffly_servers') || '[]');
-                const serverOptions = savedServers.map((server, index) =>
-                    `<option value="${server.url}">${server.name || server.url}</option>`
-                ).join('');
-
                 const modal = document.createElement('div');
                 modal.className = 'modal';
                 modal.style.display = 'block';
-                modal.innerHTML = `
-                    <div class="modal-content share-modal">
-                        <h3 class="share-modal-title">Share Dashboard</h3>
-                        <p class="share-modal-description">Name your project and choose what to include:</p>
 
-                        <div style="margin-bottom: 1.5rem;">
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
-                                Project Name
-                            </label>
-                            <input type="text"
-                                   id="project-name-input"
-                                   value="${defaultProjectName.replace(/"/g, '&quot;')}"
-                                   placeholder="Enter project name"
-                                   style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem;">
-                        </div>
+                if (!isAuthorized) {
+                    // First-time authorization state
+                    modal.innerHTML = `
+                        <div class="modal-content share-modal">
+                            <h3 class="share-modal-title">分享 Dashboard</h3>
+                            <p class="share-modal-description">请先授权访问服务器：</p>
 
-                        <div class="share-options">
-                            <label class="share-option-container" style="opacity: 0.7; cursor: not-allowed;">
-                                <input type="checkbox" id="include-stats-checkbox" checked disabled class="share-checkbox">
-                                <div>
-                                    <span class="share-option-label">📊 Statistics & Charts</span>
-                                </div>
-                            </label>
-
-                            <label class="share-option-container">
-                                <input type="checkbox" id="include-commands-checkbox" class="share-checkbox">
-                                <div>
-                                    <span class="share-option-label">📝 User Commands Table</span>
-                                    <br>
-                                    <small class="share-option-description">Make sure they don't include your private keys!</small>
-                                </div>
-                            </label>
-
-                            <label class="share-option-container">
-                                <input type="checkbox" id="make-public-checkbox" class="share-checkbox">
-                                <div>
-                                    <span class="share-option-label">🌐 List on sniffly.dev</span>
-                                    <br>
-                                    <small class="share-option-description">Helpful for others to learn from your usage.</small>
-                                </div>
-                            </label>
-                        </div>
-
-                        <!-- Server Selection Section -->
-                        <div style="margin: 1.5rem 0; padding: 1rem; background: #f9fafb; border-radius: 8px;">
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
-                                Server Address
-                            </label>
-                            <select id="server-select"
-                                    style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem; margin-bottom: 0.5rem;">
-                                <option value="">-- Select a server --</option>
-                                ${serverOptions}
-                                <option value="__new__">+ Add New Server</option>
-                            </select>
-
-                            <div id="new-server-input-container" style="display: none; margin-top: 0.5rem;">
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                                    服务器地址
+                                </label>
                                 <input type="text"
-                                       id="new-server-input"
+                                       id="server-url-input"
                                        placeholder="http://10.0.1.100:8080"
                                        style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem;">
-                                <small style="color: #666; font-size: 0.8rem;">Enter server URL in format: http://IP:port</small>
+                                <small style="color: #666; font-size: 0.8rem;">内网 Sniffly-Site 服务器地址</small>
+                            </div>
+
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                                    用户名
+                                </label>
+                                <input type="text"
+                                       id="username-input"
+                                       placeholder="username"
+                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem;">
+                            </div>
+
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                                    密码
+                                </label>
+                                <input type="password"
+                                       id="password-input"
+                                       placeholder="password"
+                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem;">
+                            </div>
+
+                            <div class="modal-button-container">
+                                <button onclick="window.cancelShare()" class="modal-button modal-button-cancel">
+                                    取消
+                                </button>
+                                <button onclick="window.handleAuthorize()" class="modal-button modal-button-primary" id="authorize-btn">
+                                    获取授权
+                                </button>
                             </div>
                         </div>
+                    `;
+                } else {
+                    // Already authorized state
+                    modal.innerHTML = `
+                        <div class="modal-content share-modal">
+                            <h3 class="share-modal-title">分享 Dashboard</h3>
 
-                        <!-- Authentication Section -->
-                        <div style="margin: 1.5rem 0; padding: 1rem; background: #f9fafb; border-radius: 8px;">
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
-                                Authentication
-                            </label>
-                            <input type="text"
-                                   id="username-input"
-                                   placeholder="Username"
-                                   style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem; margin-bottom: 0.5rem;">
-                            <input type="password"
-                                   id="password-input"
-                                   placeholder="Password"
-                                   style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem;">
-                        </div>
+                            <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-size: 0.9rem; color: #2e7d32;">已授权用户</div>
+                                        <div style="font-weight: 600; color: #1b5e20;">${auth.username} @ ${auth.serverUrl}</div>
+                                    </div>
+                                    <button onclick="window.reauthorize()" class="modal-button" style="font-size: 0.8rem; padding: 0.25rem 0.5rem;">
+                                        重新授权
+                                    </button>
+                                </div>
+                            </div>
 
-                        <div class="share-info">
-                            <p style="margin: 1rem 0 0.5rem 0; font-size: 0.875rem; color: #666;">
-                                ℹ️ Contact us to delete your shared links.
-                            </p>
-                        </div>
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                                    项目名称
+                                </label>
+                                <input type="text"
+                                       id="project-name-input"
+                                       value="${defaultProjectName.replace(/"/g, '&quot;')}"
+                                       placeholder="输入项目名称"
+                                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem;">
+                            </div>
 
-                        <div class="modal-button-container">
-                            <button onclick="window.cancelShare()" class="modal-button modal-button-cancel">
-                                Cancel
-                            </button>
-                            <button onclick="window.loginAndShare()" class="modal-button modal-button-primary" id="login-share-btn">
-                                Login & Share
-                            </button>
+                            <div class="share-options" style="margin-bottom: 1.5rem;">
+                                <label class="share-option-container" style="opacity: 0.7; cursor: not-allowed;">
+                                    <input type="checkbox" id="include-stats-checkbox" checked disabled class="share-checkbox">
+                                    <div>
+                                        <span class="share-option-label">📊 Statistics & Charts</span>
+                                    </div>
+                                </label>
+
+                                <label class="share-option-container">
+                                    <input type="checkbox" id="include-commands-checkbox" checked class="share-checkbox">
+                                    <div>
+                                        <span class="share-option-label">📝 User Commands Table</span>
+                                        <br>
+                                        <small class="share-option-description">确保不包含敏感信息！</small>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <div class="modal-button-container">
+                                <button onclick="window.cancelShare()" class="modal-button modal-button-cancel">
+                                    取消
+                                </button>
+                                <button onclick="window.doShare()" class="modal-button modal-button-primary" id="share-btn">
+                                    分享
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                }
 
                 document.body.appendChild(modal);
 
-                // Handle server selection change
-                const serverSelect = document.getElementById('server-select');
-                const newServerContainer = document.getElementById('new-server-input-container');
-                const newServerInput = document.getElementById('new-server-input');
-
-                serverSelect.addEventListener('change', (e) => {
-                    if (e.target.value === '__new__') {
-                        newServerContainer.style.display = 'block';
-                    } else {
-                        newServerContainer.style.display = 'none';
-                    }
-                });
-
-                window.loginAndShare = async () => {
-                    const projectNameInput = document.getElementById('project-name-input');
-                    const projectName = (projectNameInput?.value || '').trim() || 'Untitled Project';
-                    const includeCommands = document.getElementById('include-commands-checkbox').checked;
-                    const makePublic = document.getElementById('make-public-checkbox').checked;
-
-                    // Get server URL
-                    let serverUrl = serverSelect.value;
-                    if (serverUrl === '__new__') {
-                        serverUrl = newServerInput.value.trim();
-                        if (!serverUrl) {
-                            alert('Please enter a server URL');
-                            return;
-                        }
-                        // Save new server to LocalStorage
-                        const newServerName = serverUrl;
-                        const existingServers = JSON.parse(localStorage.getItem('sniffly_servers') || '[]');
-                        if (!existingServers.some(s => s.url === serverUrl)) {
-                            existingServers.push({ name: newServerName, url: serverUrl });
-                            localStorage.setItem('sniffly_servers', JSON.stringify(existingServers));
-                        }
-                    } else if (!serverUrl) {
-                        alert('Please select a server');
-                        return;
-                    }
-
-                    // Get credentials
-                    const username = document.getElementById('username-input').value.trim();
-                    const password = document.getElementById('password-input').value;
-
-                    if (!username || !password) {
-                        alert('Please enter username and password');
-                        return;
-                    }
-
-                    const loginShareBtn = document.getElementById('login-share-btn');
-                    loginShareBtn.disabled = true;
-                    loginShareBtn.textContent = 'Logging in...';
-
-                    try {
-                        // Login to get JWT token
-                        const loginResponse = await fetch(`${serverUrl}/auth/login`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ username, password })
-                        });
-
-                        if (!loginResponse.ok) {
-                            const errorData = await loginResponse.json().catch(() => ({}));
-                            throw new Error(errorData.message || 'Login failed');
-                        }
-
-                        const loginData = await loginResponse.json();
-                        const token = loginData.token || loginData.access_token;
-
-                        if (!token) {
-                            throw new Error('No token received from server');
-                        }
-
-                        document.body.removeChild(modal);
-                        resolve({
-                            projectName,
-                            includeCommands,
-                            makePublic,
-                            serverUrl,
-                            token
-                        });
-                    } catch (error) {
-                        alert('Login failed: ' + error.message);
-                        loginShareBtn.disabled = false;
-                        loginShareBtn.textContent = 'Login & Share';
-                    }
-                };
-
+                // Define handlers
                 window.cancelShare = () => {
                     document.body.removeChild(modal);
                     resolve(null);
+                };
+
+                window.handleAuthorize = async () => {
+                    const serverUrl = document.getElementById('server-url-input').value.trim();
+                    const username = document.getElementById('username-input').value.trim();
+                    const password = document.getElementById('password-input').value;
+
+                    if (!serverUrl) {
+                        alert('请输入服务器地址');
+                        return;
+                    }
+                    if (!username || !password) {
+                        alert('请输入用户名和密码');
+                        return;
+                    }
+
+                    const btn = document.getElementById('authorize-btn');
+                    btn.disabled = true;
+                    btn.textContent = '授权中...';
+
+                    try {
+                        // Login to get token
+                        const loginResult = await window.ShareClient.login(serverUrl, username, password);
+
+                        if (!loginResult.success) {
+                            throw new Error(loginResult.error || '登录失败');
+                        }
+
+                        // Get user info
+                        const userInfo = await window.ShareClient.getUserInfo(serverUrl, loginResult.token);
+
+                        if (!userInfo.success) {
+                            throw new Error(userInfo.error || '获取用户信息失败');
+                        }
+
+                        // Save auth info
+                        window.ShareStorage.saveAuth(
+                            serverUrl,
+                            userInfo.username,
+                            loginResult.token,
+                            loginResult.expires_in || 604800
+                        );
+
+                        // Close modal and show authorized state
+                        document.body.removeChild(modal);
+
+                        // Re-show modal with authorized state
+                        const authorizedResult = await showShareOptionsModal();
+                        resolve(authorizedResult);
+
+                    } catch (error) {
+                        alert('授权失败: ' + error.message);
+                        btn.disabled = false;
+                        btn.textContent = '获取授权';
+                    }
+                };
+
+                window.reauthorize = () => {
+                    window.ShareStorage.clearAuth();
+                    document.body.removeChild(modal);
+                    // Re-show modal for new authorization
+                    showShareOptionsModal().then(resolve);
+                };
+
+                window.doShare = () => {
+                    const projectName = document.getElementById('project-name-input').value.trim() || 'Untitled Project';
+                    const includeCommands = document.getElementById('include-commands-checkbox').checked;
+
+                    document.body.removeChild(modal);
+
+                    resolve({
+                        projectName,
+                        includeCommands,
+                        serverUrl: auth.serverUrl,
+                        token: auth.token,
+                        username: auth.username
+                    });
                 };
 
                 // Close on outside click
@@ -1443,45 +1444,45 @@
         }
         
         // Show share link modal
-        function showShareModal(url, isPublic) {
+        function showShareModal(url) {
             const modal = document.createElement('div');
             modal.className = 'modal';
             modal.style.display = 'block';
             modal.innerHTML = `
                 <div class="modal-content share-link-modal">
-                    <h3 class="share-modal-title">Share Link Created!</h3>
-                    <p class="share-modal-description">Your dashboard has been shared successfully.</p>
-                    
+                    <h3 class="share-modal-title">分享成功！</h3>
+                    <p class="share-modal-description">您的 Dashboard 已成功分享。</p>
+
                     <div class="share-link-container">
-                        <input type="text" value="${url}" readonly class="share-link-input" 
+                        <input type="text" value="${url}" readonly class="share-link-input"
                                onclick="this.select(); navigator.clipboard.writeText(this.value).then(() => {
                                    const toast = document.createElement('div');
-                                   toast.textContent = 'Copied!';
+                                   toast.textContent = '已复制!';
                                    toast.style.cssText = 'position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #f3f4f6; color: #374151; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.9rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 1000;';
                                    this.parentElement.style.position = 'relative';
                                    this.parentElement.appendChild(toast);
                                    setTimeout(() => toast.remove(), 2000);
                                });">
                     </div>
-                    
+
                     <div class="share-link-footer">
                         <div class="share-link-info">
-                            <span class="share-link-info-icon">${isPublic ? '🌐' : '🔒'}</span>
-                            ${isPublic ? 'Public gallery listing' : 'Private link'}<br>
+                            <span class="share-link-info-icon">🔒</span>
+                            私有分享链接<br>
                         </div>
                         <button onclick="window.closeShareModal()" class="modal-button-done">
-                            Done
+                            完成
                         </button>
                     </div>
                 </div>
             `;
-            
+
             document.body.appendChild(modal);
-            
+
             window.closeShareModal = () => {
                 document.body.removeChild(modal);
             };
-            
+
             // Close on outside click
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
