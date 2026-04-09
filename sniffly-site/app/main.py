@@ -1,15 +1,29 @@
 """FastAPI main entry point - serves API and static files."""
 
+import json
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
 
+from app.auth import SessionLocal
+from app.models import Share
 from app.routers import auth, shares, users
 
 app = FastAPI(title="Sniffly Site API")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Include API routers
 app.include_router(auth.router)
@@ -40,11 +54,39 @@ async def dashboard():
 
 @app.get("/share/{share_id}", response_class=HTMLResponse)
 async def share_page(share_id: str):
-    """Serve share viewer page."""
+    """Serve share viewer page with injected data."""
     share_path = BASE_DIR / "templates" / "share.html"
-    if share_path.exists():
-        return FileResponse(str(share_path))
-    return HTMLResponse(content="<h1>Share</h1><p>Please ensure share.html exists.</p>", status_code=404)
+    if not share_path.exists():
+        return HTMLResponse(content="<h1>Share</h1><p>Please ensure share.html exists.</p>", status_code=404)
+
+    # Get share data from database
+    db = SessionLocal()
+    try:
+        share = db.query(Share).filter(Share.uuid == share_id).first()
+        if not share:
+            return HTMLResponse(content="<h1>Share Not Found</h1><p>The requested share does not exist.</p>", status_code=404)
+
+        # Prepare share data for injection
+        share_data = {
+            "project_name": share.project_name,
+            "stats": share.stats,
+            "user_commands": share.user_commands,
+        }
+
+        # Read template and inject data
+        template_content = share_path.read_text(encoding='utf-8')
+        share_data_json = json.dumps(share_data, ensure_ascii=False)
+        injected_script = f"window.SHARE_DATA = {share_data_json};"
+
+        # Replace placeholder with actual data
+        html_content = template_content.replace(
+            "// SHARE_DATA_INJECTION",
+            injected_script
+        )
+
+        return HTMLResponse(content=html_content)
+    finally:
+        db.close()
 
 
 @app.get("/admin", response_class=HTMLResponse)

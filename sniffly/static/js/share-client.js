@@ -12,7 +12,7 @@ const ShareClient = {
      */
     async login(serverUrl, username, password) {
         try {
-            const response = await fetch(`${serverUrl}/auth/login`, {
+            const response = await fetch(`${serverUrl}/api/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

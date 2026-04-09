@@ -43,7 +43,18 @@
 
                 const data = await response.json();
                 localStorage.setItem('access_token', data.access_token);
-                window.location.href = '/dashboard';
+
+                // 获取用户信息，根据角色决定跳转页面
+                const meResponse = await fetch(`${API_BASE}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${data.access_token}` }
+                });
+                const userData = await meResponse.json();
+
+                if (userData.is_admin) {
+                    window.location.href = '/admin';
+                } else {
+                    window.location.href = '/dashboard';
+                }
             } catch (err) {
                 errorMsg.textContent = err.message;
                 errorMsg.style.display = 'block';
