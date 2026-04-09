@@ -316,112 +316,95 @@
         </div>
             
         <!-- Messages Tab -->
+        <!-- Messages Tab -->
         <div class="tab-content" id="messages-tab">
             <div class="table-section-wide">
                 <div class="table-header">
                     <div>
                         <div id="message-count" class="table-summary"></div>
                     </div>
-
-                <!-- Date Range Filter Row -->
-                <div class="date-filter-row">
-                    <span class="date-filter-label">Time:</span>
-                    <div class="date-preset-buttons">
-                        <button class="date-preset-btn" data-preset="today" onclick="setDatePreset('today')">Today</button>
-                        <button class="date-preset-btn" data-preset="yesterday" onclick="setDatePreset('yesterday')">Yesterday</button>
-                        <button class="date-preset-btn" data-preset="7days" onclick="setDatePreset('7days')">Last 7 Days</button>
-                        <button class="date-preset-btn" data-preset="30days" onclick="setDatePreset('30days')">Last 30 Days</button>
-                        <button class="date-preset-btn" data-preset="all" onclick="setDatePreset('all')">All</button>
-                    </div>
-                    <div class="date-custom-inputs">
-                        <input type="date" id="date-filter-start" onchange="applyCustomDateFilter()" title="Start date">
-                        <span class="date-range-sep">—</span>
-                        <input type="date" id="date-filter-end" onchange="applyCustomDateFilter()" title="End date">
+                    <div class="table-controls">
+                        <div class="filter-group">
+                            <select id="type-filter">
+                                <option value="">All Types</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <select id="error-filter">
+                                <option value="">All Messages</option>
+                                <option value="errors-only">Errors Only</option>
+                                <option value="no-errors">No Errors</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <select id="tool-filter">
+                                <option value="">All Tools</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <input type="text" id="search-input" placeholder="Search messages..." class="filter-input-search">
+                        </div>
+                        <div class="filter-group">
+                            <select id="per-page">
+                                <option value="20" selected>20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="200">200</option>
+                            </select>
+                        </div>
+                        <button onclick="exportMessagesToMarkdown()" class="btn-export" title="Export to Markdown">
+                            📥 Export
+                        </button>
                     </div>
                 </div>
+            </div>
 
-                <div class="table-controls">
-                    <div class="filter-group">
-                        <select id="type-filter">
-                            <option value="">All Types</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <select id="error-filter">
-                            <option value="">All Messages</option>
-                            <option value="errors-only">Errors Only</option>
-                            <option value="no-errors">No Errors</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <select id="tool-filter">
-                            <option value="">All Tools</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <input type="text" id="search-input" placeholder="Search messages..." class="filter-input-search">
-                    </div>
-                    <div class="filter-group">
-                        <select id="per-page">
-                            <option value="20" selected>20</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                            <option value="200">200</option>
-                        </select>
-                    </div>
-                    <button onclick="exportMessagesToMarkdown()" class="btn-export" title="Export to Markdown">
-                        📥 Export
-                    </button>
+            <div class="table-wrapper">
+                <table class="data-table" id="messages-table">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('type')" class="sortable">
+                                Type
+                            </th>
+                            <th onclick="sortTable('content')" class="sortable">
+                                Message
+                            </th>
+                            <th onclick="sortTable('timestamp')" class="sortable">
+                                Timestamp
+                            </th>
+                            <th onclick="sortTable('model')" class="sortable">
+                                Model
+                            </th>
+                            <th onclick="sortTable('tokens')" class="sortable">
+                                Tokens
+                            </th>
+                            <th class="no-sort">Tools</th>
+                        </tr>
+                    </thead>
+                    <tbody id="messages-tbody">
+                        <tr><td colspan="6" class="loading">Loading messages...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-pagination" id="messages-pagination" style="display: none;">
+                <button onclick="changeMessagesPage(-1)" id="messages-prev-btn">Previous</button>
+                <div class="page-info">
+                    Page <input type="number" id="messages-page-input" value="1" onchange="goToMessagesPage()">
+                    of <span id="messages-total-pages">1</span>
+                </div>
+                <button onclick="changeMessagesPage(1)" id="messages-next-btn">Next</button>
+                <div class="row-jump">
+                    <label>Go to row:</label>
+                    <input type="number" id="messages-row-input"
+                        placeholder="Row #" onkeypress="if(event.key==='Enter') goToMessageRow()">
+                    <button onclick="goToMessageRow()">Go</button>
                 </div>
             </div>
         </div>
-        
-        <div class="table-wrapper">
-            <table class="data-table" id="messages-table">
-                <thead>
-                    <tr>
-                        <th onclick="sortTable('type')" class="sortable">
-                            Type
-                        </th>
-                        <th onclick="sortTable('content')" class="sortable">
-                            Message
-                        </th>
-                        <th onclick="sortTable('timestamp')" class="sortable">
-                            Timestamp
-                        </th>
-                        <th onclick="sortTable('model')" class="sortable">
-                            Model
-                        </th>
-                        <th onclick="sortTable('tokens')" class="sortable">
-                            Tokens
-                        </th>
-                        <th class="no-sort">Tools</th>
-                    </tr>
-                </thead>
-                <tbody id="messages-tbody">
-                    <tr><td colspan="6" class="loading">Loading messages...</td></tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="table-pagination" id="messages-pagination" style="display: none;">
-            <button onclick="changeMessagesPage(-1)" id="messages-prev-btn">Previous</button>
-            <div class="page-info">
-                Page <input type="number" id="messages-page-input" value="1" onchange="goToMessagesPage()">
-                of <span id="messages-total-pages">1</span>
-            </div>
-            <button onclick="changeMessagesPage(1)" id="messages-next-btn">Next</button>
-            <div class="row-jump">
-                <label>Go to row:</label>
-                <input type="number" id="messages-row-input" 
-                    placeholder="Row #" onkeypress="if(event.key==='Enter') goToMessageRow()">
-                <button onclick="goToMessageRow()">Go</button>
-            </div>
-        </div>
-    </div>
-            
-    <!-- JSONL Viewer Tab -->
-    <div class="tab-content" id="jsonl-tab">
+
+        <!-- JSONL Viewer Tab -->
+        <div class="tab-content" id="jsonl-tab">
         <div class="table-section-wide">
             <div class="jsonl-controls">
                 <select id="jsonlFileSelect" onchange="JsonlViewer.loadFile(this.value)" style="min-width: 500px; max-width: 600px;">
