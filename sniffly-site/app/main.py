@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.auth import SessionLocal
 from app.models import Share
 from app.routers import auth, shares, users
+from app.routers.shares import get_gallery, get_gallery_project, toggle_feature_project
 
 app = FastAPI(title="Sniffly Site API")
 
@@ -29,6 +30,11 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(shares.router)
 app.include_router(users.router)
+
+# Add gallery routes directly (not under /api/shares prefix)
+app.add_api_route("/api/gallery", get_gallery, methods=["GET"], tags=["gallery"])
+app.add_api_route("/api/gallery/{share_id}", get_gallery_project, methods=["GET"], tags=["gallery"])
+app.add_api_route("/api/gallery/{share_id}/feature", toggle_feature_project, methods=["POST"], tags=["gallery"])
 
 # Get the project root directory (parent of app/)
 BASE_DIR = Path(__file__).parent.parent.absolute()

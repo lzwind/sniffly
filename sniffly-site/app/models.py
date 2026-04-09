@@ -35,6 +35,7 @@ class Share(Base):
     stats: dict = Column(JSON, nullable=False, default=dict)
     user_commands: list = Column(JSON, nullable=False, default=list)
     is_public: bool = Column(Boolean, default=False, nullable=False)
+    is_featured: bool = Column(Boolean, default=False, nullable=False)
     created_at: datetime = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: datetime = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
