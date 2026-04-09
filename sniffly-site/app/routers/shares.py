@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.auth import get_current_user, get_db, require_admin
 from app.models import Share, User
@@ -142,16 +142,8 @@ async def get_gallery(
     """Get all shares as gallery projects (admin only)."""
     from sqlalchemy import func
 
-    # Load without ordering to avoid sort_buffer_size issues with large JSON columns
-    shares = db.query(
-        Share.id,
-        Share.uuid,
-        Share.project_name,
-        Share.is_featured,
-        Share.stats,
-        Share.created_at,
-        Share.updated_at,
-    ).all()
+    # Load shares with user info using join
+    shares = db.query(Share).options(joinedload(Share.user)).all()
 
     # Sort in Python instead of MySQL
     shares = sorted(shares, key=lambda x: x.updated_at or x.created_at, reverse=True)
@@ -171,6 +163,10 @@ async def get_gallery(
             "total_tokens": total_tokens.get("input", 0) + total_tokens.get("output", 0),
             "created_at": share.created_at.isoformat() if share.created_at else None,
             "updated_at": share.updated_at.isoformat() if share.updated_at else None,
+            "user": {
+                "id": share.user.id,
+                "username": share.user.username,
+            } if share.user else None,
         })
 
     return result

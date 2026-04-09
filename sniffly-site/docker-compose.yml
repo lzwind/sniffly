@@ -4,7 +4,7 @@ services:
   api:
     build: .
     ports:
-      - "8002:8000"
+      - "8000:8000"
     environment:
       - DATABASE_URL=mysql+pymysql://sniffly:sniffly@mysql:3306/sniffly
       - SECRET_KEY=change-this-secret-key-in-production
