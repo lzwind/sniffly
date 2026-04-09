@@ -535,8 +535,51 @@
         let filteredMessages = [];
         let statistics = {};
         // Messages tab state variables moved to messages-tab.js
-        
-        
+
+        // Date range calculation utilities for share modal
+        function getDateRangeForPreset(preset) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const endOfToday = new Date(today);
+            endOfToday.setHours(23, 59, 59, 999);
+
+            switch (preset) {
+                case 'today':
+                    return {
+                        start: today.toISOString().split('T')[0],
+                        end: endOfToday.toISOString().split('T')[0]
+                    };
+                case 'yesterday':
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    return {
+                        start: yesterday.toISOString().split('T')[0],
+                        end: yesterday.toISOString().split('T')[0]
+                    };
+                case '7days':
+                    const sevenDaysAgo = new Date(today);
+                    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+                    return {
+                        start: sevenDaysAgo.toISOString().split('T')[0],
+                        end: endOfToday.toISOString().split('T')[0]
+                    };
+                case '30days':
+                    const thirtyDaysAgo = new Date(today);
+                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+                    return {
+                        start: thirtyDaysAgo.toISOString().split('T')[0],
+                        end: endOfToday.toISOString().split('T')[0]
+                    };
+                case 'all':
+                default:
+                    return { start: null, end: null };
+            }
+        }
+
+        function formatDateForInput(date) {
+            return date.toISOString().split('T')[0];
+        }
+
         // Build chronological data from all available sources
         
         // Local mode API endpoints
