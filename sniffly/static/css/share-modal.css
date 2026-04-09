@@ -158,3 +158,26 @@
 .modal-button-done:hover {
     background: #5a67d8;
 }
+
+/* Messages filter options */
+#messages-filter-options {
+    transition: opacity 0.2s ease;
+}
+
+.date-preset-btn {
+    transition: all 0.2s ease;
+}
+
+.date-preset-btn:hover {
+    background-color: #f0f0f0;
+}
+
+.date-preset-btn.active {
+    background-color: #667eea !important;
+    color: white !important;
+    border-color: #667eea !important;
+}
+
+.msg-type-checkbox {
+    cursor: pointer;
+}
