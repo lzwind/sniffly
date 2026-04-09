@@ -1214,6 +1214,45 @@
         // Initialize on load
         window.addEventListener('DOMContentLoaded', initDashboard);
         
+        // Filter messages by selected types
+        function filterMessagesByTypes(messages, selectedTypes) {
+            if (!selectedTypes || selectedTypes.length === 0) {
+                return [];
+            }
+
+            return messages.filter(msg => {
+                const type = msg.type;
+
+                // Check each selected type
+                for (const selectedType of selectedTypes) {
+                    switch (selectedType) {
+                        case 'user':
+                            if (type === 'human' || type === 'task') return true;
+                            break;
+                        case 'assistant':
+                            if (type === 'assistant') return true;
+                            break;
+                        case 'summary':
+                            if (type === 'summary' || type === 'compact_summary') return true;
+                            break;
+                        case 'tool_result':
+                            if (msg.has_tool_result) return true;
+                            break;
+                        case 'other':
+                            // Not matching any of the above types
+                            if (type !== 'human' && type !== 'task' &&
+                                type !== 'assistant' &&
+                                type !== 'summary' && type !== 'compact_summary' &&
+                                !msg.has_tool_result) {
+                                return true;
+                            }
+                            break;
+                    }
+                }
+                return false;
+            });
+        }
+
         // Share functionality
         async function shareDashboard() {
             const shareButton = document.getElementById('share-button');
@@ -1231,6 +1270,62 @@
 
                 shareButton.textContent = '上传中...';
 
+                // Prepare data
+                const shareData = {
+                    project_name: shareOptions.projectName,
+                    stats: window.statistics,
+                    user_commands: shareOptions.includeCommands ? (window.userCommands || []) : []
+                };
+
+                // Fetch and filter messages if requested
+                if (shareOptions.includeMessages) {
+                    console.log('📥 Fetching messages for upload...');
+
+                    // Build API URL with date range
+                    const params = new URLSearchParams();
+                    if (shareOptions.dateRange.start) {
+                        params.append('start_date', shareOptions.dateRange.start);
+                    }
+                    if (shareOptions.dateRange.end) {
+                        params.append('end_date', shareOptions.dateRange.end);
+                    }
+
+                    const apiBase = '/api';
+                    const url = `${apiBase}/messages${params.toString() ? '?' + params.toString() : ''}`;
+
+                    try {
+                        const response = await fetch(url);
+                        if (response.ok) {
+                            const messages = await response.json();
+                            console.log(`📊 Fetched ${messages.length} messages`);
+
+                            // Filter by selected types
+                            const filteredMessages = filterMessagesByTypes(messages, shareOptions.messageTypes);
+                            console.log(`📊 After type filtering: ${filteredMessages.length} messages`);
+
+                            // Check for large data
+                            if (filteredMessages.length > 5000) {
+                                const confirmed = confirm(
+                                    `检测到 ${filteredMessages.length.toLocaleString()} 条消息，数据量较大，上传可能需要更长时间。\n\n是否继续？`
+                                );
+                                if (!confirmed) {
+                                    shareButton.disabled = false;
+                                    shareButton.textContent = '📤 Upload';
+                                    return;
+                                }
+                            }
+
+                            shareData.messages = filteredMessages;
+                        } else {
+                            console.error('Failed to fetch messages:', response.status);
+                            alert('获取消息失败，将只上传统计数据');
+                        }
+                    } catch (error) {
+                        console.error('Error fetching messages:', error);
+                        alert('获取消息时出错，将只上传统计数据');
+                    }
+                }
+
                 // Create share on the server
                 const response = await fetch(`${shareOptions.serverUrl}/api/shares`, {
                     method: 'POST',
@@ -1238,11 +1333,7 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${shareOptions.token}`
                     },
-                    body: JSON.stringify({
-                        project_name: shareOptions.projectName,
-                        stats: window.statistics,
-                        user_commands: shareOptions.includeCommands ? (window.userCommands || []) : []
-                    })
+                    body: JSON.stringify(shareData)
                 });
 
                 if (!response.ok) {
