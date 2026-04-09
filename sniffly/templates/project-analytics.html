@@ -537,38 +537,44 @@
         // Messages tab state variables moved to messages-tab.js
 
         // Date range calculation utilities for share modal
+        // Format date to YYYY-MM-DD in local timezone (not UTC)
+        function formatDateLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
         function getDateRangeForPreset(preset) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const endOfToday = new Date(today);
-            endOfToday.setHours(23, 59, 59, 999);
 
             switch (preset) {
                 case 'today':
                     return {
-                        start: today.toISOString().split('T')[0],
-                        end: endOfToday.toISOString().split('T')[0]
+                        start: formatDateLocal(today),
+                        end: formatDateLocal(today)
                     };
                 case 'yesterday':
                     const yesterday = new Date(today);
                     yesterday.setDate(yesterday.getDate() - 1);
                     return {
-                        start: yesterday.toISOString().split('T')[0],
-                        end: yesterday.toISOString().split('T')[0]
+                        start: formatDateLocal(yesterday),
+                        end: formatDateLocal(yesterday)
                     };
                 case '7days':
                     const sevenDaysAgo = new Date(today);
                     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
                     return {
-                        start: sevenDaysAgo.toISOString().split('T')[0],
-                        end: endOfToday.toISOString().split('T')[0]
+                        start: formatDateLocal(sevenDaysAgo),
+                        end: formatDateLocal(today)
                     };
                 case '30days':
                     const thirtyDaysAgo = new Date(today);
                     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
                     return {
-                        start: thirtyDaysAgo.toISOString().split('T')[0],
-                        end: endOfToday.toISOString().split('T')[0]
+                        start: formatDateLocal(thirtyDaysAgo),
+                        end: formatDateLocal(today)
                     };
                 case 'all':
                 default:
@@ -577,7 +583,7 @@
         }
 
         function formatDateForInput(date) {
-            return date.toISOString().split('T')[0];
+            return formatDateLocal(date);
         }
 
         // Build chronological data from all available sources
