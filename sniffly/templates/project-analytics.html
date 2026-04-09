@@ -1342,7 +1342,7 @@
                 } else {
                     // Already authorized state
                     modal.innerHTML = `
-                        <div class="modal-content share-modal">
+                        <div class="modal-content share-modal" style="max-width: 500px; max-height: 80vh; overflow-y: auto;">
                             <h3 class="share-modal-title">分享 Dashboard</h3>
 
                             <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50;">
@@ -1357,7 +1357,7 @@
                                 </div>
                             </div>
 
-                            <div style="margin-bottom: 1.5rem;">
+                            <div style="margin-bottom: 1rem;">
                                 <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
                                     项目名称
                                 </label>
@@ -1368,7 +1368,7 @@
                                        style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem;">
                             </div>
 
-                            <div class="share-options" style="margin-bottom: 1.5rem;">
+                            <div class="share-options" style="margin-bottom: 1rem;">
                                 <label class="share-option-container" style="opacity: 0.7; cursor: not-allowed;">
                                     <input type="checkbox" id="include-stats-checkbox" checked disabled class="share-checkbox">
                                     <div>
@@ -1384,6 +1384,67 @@
                                         <small class="share-option-description">确保不包含敏感信息！</small>
                                     </div>
                                 </label>
+
+                                <label class="share-option-container">
+                                    <input type="checkbox" id="include-messages-checkbox" checked class="share-checkbox" onchange="window.toggleMessagesOptions()">
+                                    <div>
+                                        <span class="share-option-label">💬 Messages</span>
+                                        <br>
+                                        <small class="share-option-description">包含原始消息数据</small>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- Messages Filter Options -->
+                            <div id="messages-filter-options" style="margin-bottom: 1rem; padding: 1rem; background: #f5f5f5; border-radius: 8px;">
+                                <div style="margin-bottom: 0.75rem;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                        <label style="font-weight: 500; font-size: 0.9rem;">消息类型</label>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            <button type="button" onclick="window.toggleAllMessageTypes(true)" style="font-size: 0.75rem; padding: 0.2rem 0.4rem; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">全选</button>
+                                            <button type="button" onclick="window.toggleAllMessageTypes(false)" style="font-size: 0.75rem; padding: 0.2rem 0.4rem; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">取消全选</button>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                        <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.85rem; cursor: pointer;">
+                                            <input type="checkbox" id="msg-type-user" value="user" checked class="msg-type-checkbox">
+                                            <span>User</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.85rem; cursor: pointer;">
+                                            <input type="checkbox" id="msg-type-assistant" value="assistant" checked class="msg-type-checkbox">
+                                            <span>Assistant</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.85rem; cursor: pointer;">
+                                            <input type="checkbox" id="msg-type-summary" value="summary" checked class="msg-type-checkbox">
+                                            <span>Summary</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.85rem; cursor: pointer;">
+                                            <input type="checkbox" id="msg-type-tool" value="tool_result" checked class="msg-type-checkbox">
+                                            <span>Tool Result</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.85rem; cursor: pointer;">
+                                            <input type="checkbox" id="msg-type-other" value="other" checked class="msg-type-checkbox">
+                                            <span>其他</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem;">时间范围</label>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem;">
+                                        <button type="button" class="date-preset-btn active" data-preset="all" onclick="window.setShareDatePreset('all')" style="padding: 0.3rem 0.6rem; border: 1px solid #ddd; background: white; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">全部</button>
+                                        <button type="button" class="date-preset-btn" data-preset="today" onclick="window.setShareDatePreset('today')" style="padding: 0.3rem 0.6rem; border: 1px solid #ddd; background: white; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">今天</button>
+                                        <button type="button" class="date-preset-btn" data-preset="yesterday" onclick="window.setShareDatePreset('yesterday')" style="padding: 0.3rem 0.6rem; border: 1px solid #ddd; background: white; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">昨天</button>
+                                        <button type="button" class="date-preset-btn" data-preset="7days" onclick="window.setShareDatePreset('7days')" style="padding: 0.3rem 0.6rem; border: 1px solid #ddd; background: #667eea; color: white; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">最近7天</button>
+                                        <button type="button" class="date-preset-btn" data-preset="30days" onclick="window.setShareDatePreset('30days')" style="padding: 0.3rem 0.6rem; border: 1px solid #ddd; background: white; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">最近30天</button>
+                                        <button type="button" class="date-preset-btn" data-preset="custom" onclick="window.setShareDatePreset('custom')" style="padding: 0.3rem 0.6rem; border: 1px solid #ddd; background: white; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">自定义</button>
+                                    </div>
+                                    <div id="share-custom-date-range" style="display: none; gap: 0.5rem; align-items: center;">
+                                        <input type="date" id="share-date-start" style="padding: 0.3rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem;">
+                                        <span style="color: #666;">—</span>
+                                        <input type="date" id="share-date-end" style="padding: 0.3rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem;">
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="modal-button-container">
@@ -1396,6 +1457,11 @@
                             </div>
                         </div>
                     `;
+
+                    // Initialize date preset to 7days
+                    setTimeout(() => {
+                        window.setShareDatePreset('7days');
+                    }, 0);
                 }
 
                 document.body.appendChild(modal);
@@ -1468,15 +1534,82 @@
                     showShareOptionsModal().then(resolve);
                 };
 
-                window.doShare = () => {
+                window.toggleMessagesOptions = () => {
+                    const includeMessages = document.getElementById('include-messages-checkbox').checked;
+                    const filterOptions = document.getElementById('messages-filter-options');
+                    if (filterOptions) {
+                        filterOptions.style.display = includeMessages ? 'block' : 'none';
+                    }
+                };
+
+                window.toggleAllMessageTypes = (selectAll) => {
+                    const checkboxes = document.querySelectorAll('.msg-type-checkbox');
+                    checkboxes.forEach(cb => cb.checked = selectAll);
+                };
+
+                window.setShareDatePreset = (preset) => {
+                    // Update button styles
+                    document.querySelectorAll('.date-preset-btn').forEach(btn => {
+                        const isActive = btn.dataset.preset === preset;
+                        btn.style.background = isActive ? '#667eea' : 'white';
+                        btn.style.color = isActive ? 'white' : 'inherit';
+                        btn.classList.toggle('active', isActive);
+                    });
+
+                    // Show/hide custom date inputs
+                    const customRange = document.getElementById('share-custom-date-range');
+                    if (customRange) {
+                        customRange.style.display = preset === 'custom' ? 'flex' : 'none';
+                    }
+
+                    // Store current preset
+                    window.currentShareDatePreset = preset;
+
+                    // Set date values for custom preset
+                    if (preset === 'custom') {
+                        const range = getDateRangeForPreset('7days');
+                        const startInput = document.getElementById('share-date-start');
+                        const endInput = document.getElementById('share-date-end');
+                        if (startInput && !startInput.value) startInput.value = range.start;
+                        if (endInput && !endInput.value) endInput.value = range.end;
+                    }
+                };
+
+                window.getShareDateRange = () => {
+                    const preset = window.currentShareDatePreset || '7days';
+                    if (preset === 'custom') {
+                        const start = document.getElementById('share-date-start')?.value;
+                        const end = document.getElementById('share-date-end')?.value;
+                        return { start, end };
+                    }
+                    return getDateRangeForPreset(preset);
+                };
+
+                window.getSelectedMessageTypes = () => {
+                    const types = [];
+                    document.querySelectorAll('.msg-type-checkbox:checked').forEach(cb => {
+                        types.push(cb.value);
+                    });
+                    return types;
+                };
+
+                window.doShare = async () => {
                     const projectName = document.getElementById('project-name-input').value.trim() || 'Untitled Project';
                     const includeCommands = document.getElementById('include-commands-checkbox').checked;
+                    const includeMessages = document.getElementById('include-messages-checkbox').checked;
+
+                    // Get messages filter options
+                    const messageTypes = includeMessages ? window.getSelectedMessageTypes() : [];
+                    const dateRange = includeMessages ? window.getShareDateRange() : { start: null, end: null };
 
                     document.body.removeChild(modal);
 
                     resolve({
                         projectName,
                         includeCommands,
+                        includeMessages,
+                        messageTypes,
+                        dateRange,
                         serverUrl: auth.serverUrl,
                         token: auth.token,
                         username: auth.username
