@@ -653,3 +653,58 @@ function downloadFile(content, filename, mimeType) {
     a.click();
     URL.revokeObjectURL(url);
 }
+
+// Import JSON export file and analyze it
+async function importAndAnalyze(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    showLoading(true);
+    try {
+        const text = await file.text();
+        const exportData = JSON.parse(text);
+
+        // Validate it's an export file
+        if (!exportData.source || !exportData.summary) {
+            throw new Error('无效的导出数据文件，缺少 source 或 summary 字段');
+        }
+
+        // Update source based on import data
+        currentSource = exportData.source;
+        document.querySelectorAll('.source-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.source === currentSource);
+        });
+
+        // Update date range display from import data
+        const dateRange = exportData.export_info?.date_range || {};
+        if (dateRange.start) document.getElementById('start-date').value = dateRange.start;
+        if (dateRange.end) document.getElementById('end-date').value = dateRange.end;
+
+        // Send to analyze API
+        const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(exportData)
+        });
+
+        if (!response.ok) throw new Error(`分析失败: HTTP ${response.status}`);
+
+        const analysis = await response.json();
+        // Wrap in same structure as loadSourceAnalysis
+        currentAnalysis = { analysis: analysis, export_data: exportData };
+        renderAnalysisView(currentAnalysis);
+
+    } catch (e) {
+        console.error('Import analyze failed:', e);
+        document.getElementById('analysis-content').innerHTML = `
+            <div class="metric-section">
+                <p style="text-align: center; color: #ef4444; padding: 2rem;">
+                    导入分析失败: ${e.message}
+                </p>
+            </div>
+        `;
+    } finally {
+        showLoading(false);
+        input.value = '';
+    }
+}

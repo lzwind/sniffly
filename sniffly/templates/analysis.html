@@ -282,6 +282,8 @@
                 </select>
             </label>
             <button class="btn-export" onclick="loadAnalysis()">📊 生成分析</button>
+            <button class="btn-export" onclick="document.getElementById('import-file').click()" style="background: #10b981;">📂 导入数据文件</button>
+            <input type="file" id="import-file" accept=".json" style="display:none" onchange="importAndAnalyze(this)">
         </div>
 
         <!-- Analysis Content -->
