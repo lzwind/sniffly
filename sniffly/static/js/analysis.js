@@ -2,8 +2,9 @@
  * AI Usage Analysis Page JavaScript
  */
 
-let currentSource = 'claude';
-let currentAnalysis = null;
+var currentSource = 'claude';
+var currentAnalysis = null;
+var multiAnalysisResults = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -71,6 +72,16 @@ function switchSource(source) {
     document.querySelectorAll('.source-tab').forEach(tab => {
         tab.classList.toggle('active', tab.dataset.source === source);
     });
+
+    const exportControls = document.querySelector('.export-controls');
+
+    if (source === 'multi') {
+        if (exportControls) exportControls.style.display = 'none';
+        renderMultiImportUI();
+        return;
+    }
+
+    if (exportControls) exportControls.style.display = '';
 
     // Clear current analysis when switching
     document.getElementById('analysis-content').innerHTML = `
@@ -155,6 +166,10 @@ function escapeHtml(text) {
 }
 
 function renderAnalysisView(data) {
+    renderAnalysisViewInto(document.getElementById('analysis-content'), data);
+}
+
+function renderAnalysisViewInto(container, data) {
     const analysis = data.analysis;
     const overall = analysis.overall_assessment;
 
@@ -162,7 +177,6 @@ function renderAnalysisView(data) {
                        overall.overall_score >= 50 ? 'good' :
                        overall.overall_score >= 30 ? 'average' : 'poor';
 
-    const container = document.getElementById('analysis-content');
     container.innerHTML = '';
 
     // Header
@@ -707,4 +721,431 @@ async function importAndAnalyze(input) {
         showLoading(false);
         input.value = '';
     }
+}
+
+// ============================================
+// Multi-person analysis functions
+// ============================================
+
+function renderMultiImportUI() {
+    const content = document.getElementById('analysis-content');
+    content.innerHTML = `
+        <div class="metric-section multi-import-section">
+            <h3>离线多人数据分析</h3>
+            <p style="color: #6b7280; margin-bottom: 0.5rem;">
+                选择包含多人 JSON 数据文件的文件夹，或选择单个文件进行分析。
+            </p>
+            <p style="color: #9ca3af; font-size: 0.85rem;">
+                文件名即为人名（去除 .json 后缀），子目录名称作为分组名。
+            </p>
+            <div class="import-buttons">
+                <button class="btn-export" onclick="document.getElementById('multi-folder-input').click()"
+                        style="background: #667eea; padding: 0.7rem 1.5rem; font-size: 1rem;">
+                    选择文件夹
+                </button>
+                <button class="btn-export" onclick="document.getElementById('multi-single-input').click()"
+                        style="background: #10b981; padding: 0.7rem 1.5rem; font-size: 1rem;">
+                    选择单个文件
+                </button>
+            </div>
+            <input type="file" id="multi-folder-input" webkitdirectory style="display:none"
+                   onchange="handleFolderImport(this)">
+            <input type="file" id="multi-single-input" accept=".json" style="display:none"
+                   onchange="handleSingleFileImport(this)">
+            <div id="import-progress" style="display:none; margin-top: 1rem;"></div>
+        </div>
+    `;
+}
+
+async function handleFolderImport(input) {
+    const files = Array.from(input.files);
+    const jsonFiles = files.filter(f => f.name.endsWith('.json'));
+
+    if (jsonFiles.length === 0) {
+        alert('所选文件夹中没有找到 JSON 文件');
+        return;
+    }
+
+    showLoading(true);
+    const progressEl = document.getElementById('import-progress');
+    if (progressEl) {
+        progressEl.style.display = 'block';
+        progressEl.innerHTML = `<p style="color: #667eea;">正在读取 ${jsonFiles.length} 个文件...</p>`;
+    }
+
+    try {
+        const people = [];
+        let rootName = '';
+
+        for (let i = 0; i < jsonFiles.length; i++) {
+            const file = jsonFiles[i];
+            const parts = file.webkitRelativePath.split('/');
+
+            if (!rootName) rootName = parts[0];
+
+            const fileName = parts[parts.length - 1];
+            const personName = fileName.replace(/\.json$/i, '');
+
+            let group;
+            if (parts.length <= 2) {
+                group = rootName;
+            } else {
+                group = parts[1];
+            }
+
+            try {
+                const text = await file.text();
+                const exportData = JSON.parse(text);
+                if (!exportData.source || !exportData.summary) {
+                    console.warn(`Skipping ${fileName}: invalid export format`);
+                    continue;
+                }
+                people.push({
+                    name: personName,
+                    group: group,
+                    export_data: exportData
+                });
+            } catch (e) {
+                console.warn(`Skipping ${fileName}: parse error`, e);
+            }
+
+            if (progressEl) {
+                progressEl.innerHTML = `<p style="color: #667eea;">正在读取 ${i + 1}/${jsonFiles.length} 个文件...</p>`;
+            }
+        }
+
+        if (people.length === 0) {
+            alert('没有找到有效的数据文件');
+            return;
+        }
+
+        await performBatchAnalysis(people);
+    } catch (e) {
+        console.error('Folder import failed:', e);
+        alert('文件夹导入失败: ' + e.message);
+    } finally {
+        showLoading(false);
+        if (progressEl) progressEl.style.display = 'none';
+        input.value = '';
+    }
+}
+
+async function handleSingleFileImport(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    showLoading(true);
+    try {
+        const text = await file.text();
+        const exportData = JSON.parse(text);
+
+        if (!exportData.source || !exportData.summary) {
+            throw new Error('无效的导出数据文件，缺少 source 或 summary 字段');
+        }
+
+        const personName = file.name.replace(/\.json$/i, '');
+
+        const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(exportData)
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const analysis = await response.json();
+
+        multiAnalysisResults = {
+            results: [{
+                name: personName,
+                group: personName,
+                summary: {
+                    total_requests: exportData.summary.total_requests || 0,
+                    total_prompts: exportData.summary.total_prompts || 0,
+                    total_tokens: exportData.summary.total_tokens?.total || 0,
+                    total_cost: exportData.summary.total_cost || 0,
+                },
+                analysis: analysis,
+                export_data: exportData
+            }],
+            groups: {}
+        };
+        multiAnalysisResults.groups[personName] = {
+            member_count: 1,
+            total_requests: exportData.summary.total_requests || 0,
+            avg_score: analysis.overall_assessment?.overall_score || 0,
+            top_user: personName,
+            top_user_score: analysis.overall_assessment?.overall_score || 0
+        };
+
+        showIndividualDetail(personName);
+    } catch (e) {
+        console.error('Single file import failed:', e);
+        alert('导入分析失败: ' + e.message);
+    } finally {
+        showLoading(false);
+        input.value = '';
+    }
+}
+
+async function performBatchAnalysis(people) {
+    const progressEl = document.getElementById('import-progress');
+    if (progressEl) {
+        progressEl.style.display = 'block';
+        progressEl.innerHTML = `<p style="color: #667eea;">正在分析 ${people.length} 个人的数据...</p>`;
+    }
+
+    try {
+        const response = await fetch('/api/analyze/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ people: people })
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || `HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        multiAnalysisResults = result;
+        renderMultiResults(result);
+    } catch (e) {
+        document.getElementById('analysis-content').innerHTML = `
+            <div class="metric-section">
+                <p style="text-align: center; color: #ef4444; padding: 2rem;">
+                    批量分析失败: ${e.message}
+                </p>
+            </div>
+        `;
+    } finally {
+        if (progressEl) progressEl.style.display = 'none';
+    }
+}
+
+function renderMultiResults(result) {
+    const content = document.getElementById('analysis-content');
+    const totalPeople = result.results.length;
+    const groupNames = Object.keys(result.groups);
+    const totalGroups = groupNames.length;
+    const totalRequests = result.results.reduce((sum, r) => sum + (r.summary.total_requests || 0), 0);
+    const avgScore = totalPeople > 0
+        ? (result.results.reduce((sum, r) => sum + (r.analysis.overall_assessment?.overall_score || 0), 0) / totalPeople).toFixed(1)
+        : '0';
+
+    content.innerHTML = `
+        <div class="multi-summary-cards">
+            <div class="multi-summary-card">
+                <div class="value">${totalPeople}</div>
+                <div class="label">总人数</div>
+            </div>
+            <div class="multi-summary-card">
+                <div class="value">${totalGroups}</div>
+                <div class="label">分组数</div>
+            </div>
+            <div class="multi-summary-card">
+                <div class="value">${formatNumber(totalRequests)}</div>
+                <div class="label">总请求数</div>
+            </div>
+            <div class="multi-summary-card">
+                <div class="value">${avgScore}</div>
+                <div class="label">平均评分</div>
+            </div>
+        </div>
+
+        <div class="multi-sub-tabs">
+            <button class="multi-sub-tab active" onclick="switchMultiTab('ranking')">综合排名</button>
+            <button class="multi-sub-tab" onclick="switchMultiTab('groups')">分组汇总</button>
+        </div>
+
+        <div id="multi-ranking-section">
+            <div class="metric-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="margin: 0; border: none; padding: 0;">综合排名</h3>
+                    <label style="font-size: 0.9rem; color: #6b7280;">
+                        显示:
+                        <select id="ranking-top-n" onchange="renderRankingTable()" style="padding: 0.3rem 0.5rem; border: 1px solid #d1d5db; border-radius: 4px;">
+                            <option value="10">TOP 10</option>
+                            <option value="20">TOP 20</option>
+                            <option value="50">TOP 50</option>
+                            <option value="0">全部</option>
+                        </select>
+                    </label>
+                </div>
+                <table class="ranking-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px;">排名</th>
+                            <th>姓名</th>
+                            <th>分组</th>
+                            <th>总请求数</th>
+                            <th>用户消息</th>
+                            <th>活跃等级</th>
+                            <th>综合评分</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ranking-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="multi-groups-section" style="display:none;">
+            <div class="metric-section">
+                <h3>分组汇总对比</h3>
+                <table class="ranking-table">
+                    <thead>
+                        <tr>
+                            <th>分组</th>
+                            <th>人数</th>
+                            <th>总请求数</th>
+                            <th>平均评分</th>
+                            <th>最佳用户</th>
+                            <th>占比</th>
+                        </tr>
+                    </thead>
+                    <tbody id="groups-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="multi-individual-section" style="display:none;">
+            <button class="back-btn" onclick="backToRanking()">&#8592; 返回排名</button>
+            <div id="multi-individual-content"></div>
+        </div>
+    `;
+
+    renderRankingTable();
+    renderGroupsTable();
+}
+
+function renderRankingTable() {
+    if (!multiAnalysisResults) return;
+
+    const topNSelect = document.getElementById('ranking-top-n');
+    const topN = topNSelect ? parseInt(topNSelect.value) : 10;
+
+    const sorted = [...multiAnalysisResults.results].sort((a, b) =>
+        (b.analysis.overall_assessment?.overall_score || 0) -
+        (a.analysis.overall_assessment?.overall_score || 0)
+    );
+
+    const display = topN > 0 ? sorted.slice(0, topN) : sorted;
+
+    const tbody = document.getElementById('ranking-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = display.map((person, index) => {
+        const score = person.analysis.overall_assessment?.overall_score || 0;
+        const level = person.analysis.overall_assessment?.efficiency_level || 'E';
+        const activityLevel = person.analysis.activity_analysis?.activity_level || 'low';
+        const rank = index + 1;
+
+        const medals = ['🥇','🥈','🥉'];
+        const rankDisplay = rank <= 3
+            ? '<span class="rank-medal">' + medals[rank - 1] + '</span>'
+            : String(rank);
+
+        const scoreColor = score >= 75 ? '#10b981' :
+                           score >= 50 ? '#3b82f6' :
+                           score >= 30 ? '#f59e0b' : '#ef4444';
+
+        const activityText = activityLevel === 'high' ? '高' :
+                             activityLevel === 'medium' ? '中' : '低';
+
+        const safeName = escapeHtml(person.name).replace(/'/g, "\\'");
+        return '<tr onclick="showIndividualDetail(\'' + safeName + '\')" title="点击查看详细分析">' +
+            '<td style="text-align: center;">' + rankDisplay + '</td>' +
+            '<td style="font-weight: 500; color: #667eea;">' + escapeHtml(person.name) + '</td>' +
+            '<td>' + escapeHtml(person.group) + '</td>' +
+            '<td>' + formatNumber(person.summary.total_requests || 0) + '</td>' +
+            '<td>' + formatNumber(person.summary.total_prompts || 0) + '</td>' +
+            '<td><span class="level-badge ' + level + '">' + activityText + '</span></td>' +
+            '<td style="font-weight: 600; color: ' + scoreColor + ';">' + score.toFixed(1) + '</td>' +
+            '</tr>';
+    }).join('');
+}
+
+function renderGroupsTable() {
+    if (!multiAnalysisResults) return;
+
+    const groups = multiAnalysisResults.groups;
+    const totalRequests = Object.values(groups).reduce((sum, g) => sum + g.total_requests, 0);
+
+    const sortedGroups = Object.entries(groups).sort((a, b) => b[1].avg_score - a[1].avg_score);
+
+    const tbody = document.getElementById('groups-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = sortedGroups.map(([name, data]) => {
+        const share = totalRequests > 0 ? (data.total_requests / totalRequests * 100).toFixed(1) : '0.0';
+        return '<tr>' +
+            '<td style="font-weight: 500;">' + escapeHtml(name) + '</td>' +
+            '<td>' + data.member_count + '</td>' +
+            '<td>' + formatNumber(data.total_requests) + '</td>' +
+            '<td style="font-weight: 600; color: #667eea;">' + data.avg_score + '</td>' +
+            '<td>' + escapeHtml(data.top_user) + '</td>' +
+            '<td>' + share + '%</td>' +
+            '</tr>';
+    }).join('');
+}
+
+function switchMultiTab(tab) {
+    document.querySelectorAll('.multi-sub-tab').forEach(t => {
+        t.classList.toggle('active', t.textContent.includes(tab === 'ranking' ? '综合排名' : '分组汇总'));
+    });
+
+    const rankingSection = document.getElementById('multi-ranking-section');
+    const groupsSection = document.getElementById('multi-groups-section');
+    const individualSection = document.getElementById('multi-individual-section');
+
+    if (rankingSection) rankingSection.style.display = tab === 'ranking' ? '' : 'none';
+    if (groupsSection) groupsSection.style.display = tab === 'groups' ? '' : 'none';
+    if (individualSection) individualSection.style.display = 'none';
+}
+
+function showIndividualDetail(personName) {
+    if (!multiAnalysisResults) return;
+
+    const person = multiAnalysisResults.results.find(r => r.name === personName);
+    if (!person) return;
+
+    const rankingSection = document.getElementById('multi-ranking-section');
+    const groupsSection = document.getElementById('multi-groups-section');
+    const individualSection = document.getElementById('multi-individual-section');
+    const subTabs = document.querySelectorAll('.multi-sub-tab');
+
+    if (rankingSection) rankingSection.style.display = 'none';
+    if (groupsSection) groupsSection.style.display = 'none';
+    if (individualSection) individualSection.style.display = '';
+    subTabs.forEach(t => t.style.display = 'none');
+
+    const container = document.getElementById('multi-individual-content');
+    if (!container) return;
+    container.innerHTML = '';
+
+    renderAnalysisViewInto(container, {
+        analysis: person.analysis,
+        export_data: person.export_data
+    });
+}
+
+function backToRanking() {
+    const rankingSection = document.getElementById('multi-ranking-section');
+    const groupsSection = document.getElementById('multi-groups-section');
+    const individualSection = document.getElementById('multi-individual-section');
+    const subTabs = document.querySelectorAll('.multi-sub-tab');
+
+    if (rankingSection) rankingSection.style.display = '';
+    if (individualSection) individualSection.style.display = 'none';
+    subTabs.forEach(t => t.style.display = '');
+
+    const activeTab = document.querySelector('.multi-sub-tab.active');
+    if (activeTab) {
+        const isRanking = activeTab.textContent.includes('综合排名');
+        if (groupsSection) groupsSection.style.display = isRanking ? 'none' : '';
+        if (rankingSection) rankingSection.style.display = isRanking ? '' : 'none';
+    }
+
+    const container = document.getElementById('multi-individual-content');
+    if (container) container.innerHTML = '';
 }

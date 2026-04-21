@@ -1447,6 +1447,75 @@ async def compare_sources(data: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/analyze/batch")
+async def analyze_batch(data: dict):
+    """Analyze multiple exported AI usage datasets for multi-person comparison"""
+    try:
+        from sniffly.services.analysis_service import AIUsageAnalyzer
+
+        people = data.get("people", [])
+        if not people:
+            raise HTTPException(status_code=400, detail="No people data provided")
+
+        analyzer = AIUsageAnalyzer()
+        results = []
+        groups = {}
+
+        for person in people:
+            name = person.get("name", "Unknown")
+            group = person.get("group", "default")
+            export_data = person.get("export_data", {})
+
+            if not export_data.get("source") or not export_data.get("summary"):
+                continue
+
+            analysis = analyzer.generate_report(export_data)
+            summary = export_data.get("summary", {})
+
+            results.append({
+                "name": name,
+                "group": group,
+                "summary": {
+                    "total_requests": summary.get("total_requests", 0),
+                    "total_prompts": summary.get("total_prompts", 0),
+                    "total_tokens": summary.get("total_tokens", {}).get("total", 0)
+                        if isinstance(summary.get("total_tokens"), dict)
+                        else summary.get("total_tokens", 0),
+                    "total_cost": summary.get("total_cost", 0),
+                },
+                "analysis": analysis,
+                "export_data": export_data,
+            })
+
+            score = analysis.get("overall_assessment", {}).get("overall_score", 0)
+            if group not in groups:
+                groups[group] = {
+                    "member_count": 0,
+                    "total_requests": 0,
+                    "total_scores": 0.0,
+                    "top_user": name,
+                    "top_user_score": score,
+                }
+            groups[group]["member_count"] += 1
+            groups[group]["total_requests"] += summary.get("total_requests", 0)
+            groups[group]["total_scores"] += score
+            if score > groups[group]["top_user_score"]:
+                groups[group]["top_user"] = name
+                groups[group]["top_user_score"] = score
+
+        for g in groups.values():
+            g["avg_score"] = round(g["total_scores"] / g["member_count"], 1) if g["member_count"] > 0 else 0
+            del g["total_scores"]
+
+        return JSONResponse({"results": results, "groups": groups})
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Favicon endpoint to prevent 404 errors
 @app.get("/favicon.ico")
 async def favicon():
