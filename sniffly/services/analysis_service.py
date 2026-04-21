@@ -602,6 +602,7 @@ class AIUsageAnalyzer:
 
     def generate_markdown_report(self, data: dict) -> str:
         """Generate Markdown format analysis report"""
+        self._data = data
         report = self.generate_report(data)
         return self._format_as_markdown(report)
 
@@ -736,6 +737,24 @@ class AIUsageAnalyzer:
         trend_map = {"increasing": "📈 上升", "decreasing": "📉 下降", "stable": "➡️ 稳定"}
         lines.append(f"| 频率趋势 | {trend_map.get(quantity['prompt_frequency_trend'], quantity['prompt_frequency_trend'])} |")
         lines.append(f"| 数量评分 | {quantity['prompt_quantity_score']} 分 |\n")
+
+        # Daily Stats (from original data)
+        daily_stats = self._data.get("daily_stats", [])
+        if daily_stats:
+            lines.append("## 每日统计\n")
+            lines.append("| 日期 | 请求 | 会话 | 提示词 | 输入Token | 输出Token |")
+            lines.append("|------|------|------|--------|-----------|----------|")
+            for d in daily_stats:
+                tokens = d.get("tokens", {})
+                lines.append(
+                    f"| {d.get('date', 'N/A')} "
+                    f"| {d.get('requests', d.get('messages', 0))} "
+                    f"| {d.get('sessions', 0)} "
+                    f"| {d.get('prompts', 0)} "
+                    f"| {self._format_number(tokens.get('input', 0))} "
+                    f"| {self._format_number(tokens.get('output', 0))} |"
+                )
+            lines.append("")
 
         # Footer
         lines.append("---")

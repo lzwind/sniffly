@@ -15,6 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('end-date').value = endDate.toISOString().split('T')[0];
     document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
 
+    // Show header buttons
+    document.querySelectorAll('.btn-header').forEach(btn => {
+        btn.style.display = 'block';
+    });
+
     // Load projects for filter
     loadProjects();
 });
@@ -605,17 +610,16 @@ function formatNumber(num) {
 
 async function exportAnalysis(format = 'json') {
     if (!currentAnalysis) {
-        alert('请先生成分析报告');
+        alert('请先选择日期范围并点击"生成分析"');
         return;
     }
 
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
     const dateStr = new Date().toISOString().split('T')[0];
 
     if (format === 'markdown') {
-        // Call the markdown API
         try {
-            // currentAnalysis is the full export_and_analyze response
-            // For markdown, we need to send the export_data to the analyze/markdown endpoint
             const exportData = currentAnalysis.export_data || currentAnalysis;
 
             const response = await fetch('/api/analyze/markdown', {
@@ -629,25 +633,23 @@ async function exportAnalysis(format = 'json') {
             }
 
             const markdown = await response.text();
-            const blob = new Blob([markdown], { type: 'text/markdown' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `ai_analysis_${currentSource}_${dateStr}.md`;
-            a.click();
-            URL.revokeObjectURL(url);
+            downloadFile(markdown, `ai_analysis_${currentSource}_${dateStr}.md`, 'text/markdown');
         } catch (e) {
             console.error('Export markdown failed:', e);
             alert('导出 Markdown 失败: ' + e.message);
         }
     } else {
-        // JSON format
-        const blob = new Blob([JSON.stringify(currentAnalysis, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ai_analysis_${currentSource}_${dateStr}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        const json = JSON.stringify(currentAnalysis, null, 2);
+        downloadFile(json, `ai_analysis_${currentSource}_${dateStr}.json`, 'application/json');
     }
+}
+
+function downloadFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
 }
