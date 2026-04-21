@@ -40,10 +40,9 @@ dependencies = [
 sniffly = "sniffly.cli:cli"
 
 [project.urls]
-Homepage = "https://sniffly.dev"
-Documentation = "https://sniffly.dev/docs"
-Repository = "https://github.com/iceleaf916/sniffly"
-Issues = "https://github.com/iceleaf916/sniffly/issues"
+Homepage = "https://github.com/lzwind/sniffly"
+Repository = "https://github.com/lzwind/sniffly"
+Issues = "https://github.com/lzwind/sniffly/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["sniffly"]
