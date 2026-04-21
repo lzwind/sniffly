@@ -878,6 +878,7 @@ async function handleSingleFileImport(input) {
             top_user_score: analysis.overall_assessment?.overall_score || 0
         };
 
+        renderMultiResults(multiAnalysisResults);
         showIndividualDetail(personName);
     } catch (e) {
         console.error('Single file import failed:', e);
@@ -977,11 +978,10 @@ function renderMultiResults(result) {
                         <tr>
                             <th style="width: 60px;">排名</th>
                             <th>姓名</th>
-                            <th>分组</th>
-                            <th>总请求数</th>
-                            <th>用户消息</th>
+                            <th>所属组</th>
+                            <th>总消息数</th>
+                            <th>用户消息数</th>
                             <th>活跃等级</th>
-                            <th>综合评分</th>
                         </tr>
                     </thead>
                     <tbody id="ranking-tbody"></tbody>
@@ -997,9 +997,9 @@ function renderMultiResults(result) {
                         <tr>
                             <th>分组</th>
                             <th>人数</th>
-                            <th>总请求数</th>
-                            <th>平均评分</th>
-                            <th>最佳用户</th>
+                            <th>总消息数</th>
+                            <th>平均消息数</th>
+                            <th>最高使用者</th>
                             <th>占比</th>
                         </tr>
                     </thead>
@@ -1035,9 +1035,7 @@ function renderRankingTable() {
     if (!tbody) return;
 
     tbody.innerHTML = display.map((person, index) => {
-        const score = person.analysis.overall_assessment?.overall_score || 0;
-        const level = person.analysis.overall_assessment?.efficiency_level || 'E';
-        const activityLevel = person.analysis.activity_analysis?.activity_level || 'low';
+        const totalReqs = person.summary.total_requests || 0;
         const rank = index + 1;
 
         const medals = ['🥇','🥈','🥉'];
@@ -1045,22 +1043,18 @@ function renderRankingTable() {
             ? '<span class="rank-medal">' + medals[rank - 1] + '</span>'
             : String(rank);
 
-        const scoreColor = score >= 75 ? '#10b981' :
-                           score >= 50 ? '#3b82f6' :
-                           score >= 30 ? '#f59e0b' : '#ef4444';
-
-        const activityText = activityLevel === 'high' ? '高' :
-                             activityLevel === 'medium' ? '中' : '低';
+        var activityText = '中';
+        if (totalReqs >= 5000) activityText = '极高';
+        else if (totalReqs >= 1000) activityText = '高';
 
         const safeName = escapeHtml(person.name).replace(/'/g, "\\'");
         return '<tr onclick="showIndividualDetail(\'' + safeName + '\')" title="点击查看详细分析">' +
             '<td style="text-align: center;">' + rankDisplay + '</td>' +
             '<td style="font-weight: 500; color: #667eea;">' + escapeHtml(person.name) + '</td>' +
             '<td>' + escapeHtml(person.group) + '</td>' +
-            '<td>' + formatNumber(person.summary.total_requests || 0) + '</td>' +
+            '<td>' + formatNumber(totalReqs) + '</td>' +
             '<td>' + formatNumber(person.summary.total_prompts || 0) + '</td>' +
-            '<td><span class="level-badge ' + level + '">' + activityText + '</span></td>' +
-            '<td style="font-weight: 600; color: ' + scoreColor + ';">' + score.toFixed(1) + '</td>' +
+            '<td><span class="level-badge">' + activityText + '</span></td>' +
             '</tr>';
     }).join('');
 }
@@ -1078,15 +1072,28 @@ function renderGroupsTable() {
 
     tbody.innerHTML = sortedGroups.map(([name, data]) => {
         const share = totalRequests > 0 ? (data.total_requests / totalRequests * 100).toFixed(1) : '0.0';
+        var avgMsgs = data.member_count > 0 ? (data.total_requests / data.member_count).toFixed(0) : '0';
         return '<tr>' +
             '<td style="font-weight: 500;">' + escapeHtml(name) + '</td>' +
             '<td>' + data.member_count + '</td>' +
             '<td>' + formatNumber(data.total_requests) + '</td>' +
-            '<td style="font-weight: 600; color: #667eea;">' + data.avg_score + '</td>' +
+            '<td style="font-weight: 600; color: #667eea;">' + avgMsgs + '</td>' +
             '<td>' + escapeHtml(data.top_user) + '</td>' +
             '<td>' + share + '%</td>' +
             '</tr>';
     }).join('');
+
+    // Add totals row
+    var totalMembers = Object.values(groups).reduce((sum, g) => sum + g.member_count, 0);
+    var overallAvg = totalMembers > 0 ? (totalRequests / totalMembers).toFixed(0) : '0';
+    tbody.innerHTML += '<tr style="font-weight: 600; background: #f0f4ff; border-top: 2px solid #667eea;">' +
+        '<td>合计</td>' +
+        '<td>' + totalMembers + '</td>' +
+        '<td>' + formatNumber(totalRequests) + '</td>' +
+        '<td style="color: #667eea;">' + overallAvg + '</td>' +
+        '<td>-</td>' +
+        '<td>100%</td>' +
+        '</tr>';
 }
 
 function switchMultiTab(tab) {
