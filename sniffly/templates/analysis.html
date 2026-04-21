@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 使用分析报告 - Sniffly</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <style>
+        .analysis-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+        }
+
+        .analysis-header h1 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.8rem;
+        }
+
+        .analysis-header .subtitle {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .score-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .score-circle.excellent { background: linear-gradient(135deg, #10b981, #059669); }
+        .score-circle.good { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .score-circle.average { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .score-circle.poor { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+        .level-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .level-badge.A { background: #dcfce7; color: #166534; }
+        .level-badge.B { background: #dbeafe; color: #1e40af; }
+        .level-badge.C { background: #fef3c7; color: #92400e; }
+        .level-badge.D { background: #fee2e2; color: #991b1b; }
+        .level-badge.E { background: #fecaca; color: #7f1d1d; }
+
+        .metric-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+
+        .metric-section h3 {
+            margin: 0 0 1rem 0;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .metric-item {
+            background: #f9fafb;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .metric-subvalue {
+            font-size: 0.8rem;
+            color: #9ca3af;
+        }
+
+        .recommendations {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 1rem 1.5rem;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .recommendations ul {
+            margin: 0.5rem 0 0 1.5rem;
+            padding: 0;
+        }
+
+        .recommendations li {
+            margin: 0.5rem 0;
+        }
+
+        .strengths-improvements {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .strengths { background: #f0fdf4; border-left: 4px solid #10b981; }
+        .improvements { background: #fef2f2; border-left: 4px solid #ef4444; }
+
+        .source-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .source-tab {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            background: #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .source-tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .source-tab:hover:not(.active) {
+            background: #d1d5db;
+        }
+
+        .export-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .export-controls select,
+        .export-controls input {
+            padding: 0.5rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .btn-export {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .btn-export:hover {
+            background: #5a67d8;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .chart-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .chart-row {
+                grid-template-columns: 1fr;
+            }
+            .strengths-improvements {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div class="header">
+        <div class="header-content">
+            <div class="header-brand-with-info">
+                <img src="/static/images/logo.png" alt="Sniffly Logo" class="header-logo" onclick="window.location.href='/'" style="cursor: pointer;">
+                <div>
+                    <h1>
+                        <span class="brand-name" onclick="window.location.href='/'" style="cursor: pointer;">Sniffly</span>
+                        <span class="header-subtitle">AI 使用分析报告</span>
+                    </h1>
+                </div>
+            </div>
+        </div>
+        <div class="header-controls">
+            <button onclick="window.location.href='/'" class="btn-header">🏠 返回首页</button>
+            <button onclick="exportAnalysis('json')" class="btn-header">📥 导出 JSON</button>
+            <button onclick="exportAnalysis('markdown')" class="btn-header">📄 导出 Markdown</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Source Selection -->
+        <div class="source-tabs">
+            <button class="source-tab active" data-source="claude" onclick="switchSource('claude')">
+                Claude Code
+            </button>
+            <button class="source-tab" data-source="opencode" onclick="switchSource('opencode')">
+                OpenCode
+            </button>
+            <button class="source-tab" data-source="compare" onclick="switchSource('compare')">
+                对比分析
+            </button>
+        </div>
+
+        <!-- Export Controls -->
+        <div class="export-controls">
+            <label>开始日期: <input type="date" id="start-date"></label>
+            <label>结束日期: <input type="date" id="end-date"></label>
+            <label>项目筛选:
+                <select id="project-filter">
+                    <option value="">所有项目</option>
+                </select>
+            </label>
+            <button class="btn-export" onclick="loadAnalysis()">📊 生成分析</button>
+        </div>
+
+        <!-- Analysis Content -->
+        <div id="analysis-content">
+            <div class="metric-section">
+                <p style="text-align: center; color: #6b7280; padding: 3rem;">
+                    选择数据源和日期范围，点击"生成分析"查看报告
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/analysis.js"></script>
+</body>
+</html>

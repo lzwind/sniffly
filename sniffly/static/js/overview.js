@@ -28,12 +28,11 @@ let processedProjects = new Set(); // Track which projects have been fully proce
 // Initialize the page
 document.addEventListener('DOMContentLoaded', async function() {
   console.log('[Overview] Initializing overview page');
-    
-  // Show the refresh button
-  const refreshButton = document.getElementById('refresh-button');
-  if (refreshButton) {
-    refreshButton.style.display = 'block';
-  }
+
+  // Show all header buttons
+  document.querySelectorAll('.btn-header').forEach(btn => {
+    btn.style.display = 'block';
+  });
     
   // Load projects immediately (Phase 1)
   await loadProjects();
@@ -505,11 +504,11 @@ function getProjectSortValue(project, column) {
 
 // Render projects table with pagination and sorting
 function renderProjectsTable() {
-  const tbody = document.getElementById('projects-tbody');
+  const tbody = document.getElementById('claude-tbody');
   console.log(`[Overview] renderProjectsTable called with ${allProjects.length} projects, ${filteredProjects.length} filtered`);
     
   if (!tbody) {
-    console.error('[Overview] projects-tbody element not found!');
+    console.error('[Overview] claude-tbody element not found!');
     return;
   }
     
@@ -545,7 +544,7 @@ function renderProjectsTable() {
   const pageProjects = sortedProjects.slice(startIndex, endIndex);
     
   // Update project count info
-  const countInfo = document.getElementById('project-count-info');
+  const countInfo = document.getElementById('claude-project-count-info');
   if (filteredProjects.length !== allProjects.length) {
     countInfo.textContent = `Showing ${filteredProjects.length} of ${allProjects.length} projects`;
   } else {
@@ -618,17 +617,19 @@ function renderProjectsTable() {
     return `
             <tr onclick="navigateToProject('${project.url_slug}')" style="cursor: pointer;" class="${rowClass}" data-project-path="${project.log_path}">
                 <td class="project-name" title="${escapeHtml(project.display_name)}">${escapeHtml(project.display_name)}</td>
+                <td>${hasStats ? formatNumber(stats.total_sessions || 1) : '-'}</td>
+                <td>${hasStats ? formatNumber(stats.total_commands || 0) : '-'}</td>
+                <td>${hasStats && stats.first_message_date ? formatDate(stats.first_message_date) : '-'}</td>
                 <td>${formatDate(lastModified.toISOString())}</td>
                 <td>${duration}</td>
                 <td>${cost}</td>
-                <td>${hasStats ? formatNumber(stats.total_commands || 0) : '-'}</td>
                 <td>${tokensPerCmd}</td>
                 <td>${stepsPerCmd}</td>
                 <td>${cmdsPerContext}</td>
                 <td>${books}</td>
                 <td>
-                    ${project.in_cache ? 
-    '<span style="color: #4CAF50;">●</span>' : 
+                    ${project.in_cache ?
+    '<span style="color: #4CAF50;">●</span>' :
     '<span style="color: #999;">○</span>'}
                 </td>
             </tr>
@@ -1090,7 +1091,7 @@ function renderCostTrendChart(data) {
 
 // Show error message
 function showError(message) {
-  const tbody = document.getElementById('projects-tbody');
+  const tbody = document.getElementById('claude-tbody');
   tbody.innerHTML = `
         <tr>
             <td colspan="9">

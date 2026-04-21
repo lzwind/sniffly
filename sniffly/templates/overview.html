@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="/static/css/dashboard.css">
     <link rel="stylesheet" href="/static/css/date-range-picker.css">
     <style>
-        /* Additional styles specific to overview page */
         .loading-skeleton {
             background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
             background-size: 200% 100%;
@@ -17,65 +16,52 @@
             border-radius: 4px;
             margin: 0.5rem 0;
         }
-        
-        /* Override header-controls to be horizontal for overview page */
         .header-controls {
             flex-direction: row;
             gap: 0.5rem;
         }
-        
         @keyframes loading {
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
-        
-        /* Right-align numeric columns in projects table */
-        #projects-table th:nth-child(n+3),
-        #projects-table td:nth-child(n+3) {
+        /* 统一表格样式 */
+        .data-table th:nth-child(n+3),
+        .data-table td:nth-child(n+3) {
             text-align: right;
         }
-        
-        /* Keep project name and status left-aligned */
-        #projects-table th:nth-child(1),
-        #projects-table td:nth-child(1),
-        #projects-table th:last-child,
-        #projects-table td:last-child {
+        .data-table th:nth-child(1),
+        .data-table td:nth-child(1),
+        .data-table th:last-child,
+        .data-table td:last-child {
             text-align: left;
         }
-        
-        /* Style the project name */
         .project-name {
             font-weight: 500;
             color: #667eea;
         }
-        
-        /* Add monospace font for numeric columns */
-        #projects-table td:nth-child(n+3) {
+        .data-table td:nth-child(n+3) {
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
             font-size: 0.85rem;
         }
-        
-        /* Subtle animation for updated rows */
         @keyframes rowUpdate {
             0% { background-color: #fff3cd; }
             100% { background-color: transparent; }
         }
-        
         .recently-updated {
             animation: rowUpdate 2s ease-out;
         }
-        
-        /* Let tooltips size to their content */
-        #projects-table .tooltip-dark {
+        .data-table .tooltip-dark {
             width: max-content;
             max-width: 400px;
         }
-        
-        /* Shift tooltips left for rightmost columns */
-        #projects-table th:nth-last-child(-n+3) .tooltip-dark {
+        .data-table th:nth-last-child(-n+3) .tooltip-dark {
             left: auto;
             right: 0;
             transform: none;
+        }
+        .na-value {
+            color: #9ca3af;
+            font-size: 0.8rem;
         }
     </style>
     <script src="/static/js/constants.js"></script>
@@ -92,7 +78,7 @@
                 <div>
                     <h1>
                         <span class="brand-name" onclick="window.location.href='/'" style="cursor: pointer;">Sniffly</span>
-                        <span class="header-subtitle">Claude Code Analytics</span>
+                        <span class="header-subtitle">AI Code Analytics</span>
                     </h1>
                     <div id="project-info">
                         <p id="project-info-text">
@@ -103,26 +89,40 @@
             </div>
         </div>
         <div class="header-controls">
-            <button id="refresh-button" onclick="refreshData()" class="btn-header">
-                🔄 Refresh
+            <button onclick="window.location.href='/analysis'" class="btn-header">📊 分析报告</button>
+            <button onclick="showExportModal()" class="btn-header">📥 导出数据</button>
+            <button id="refresh-button" onclick="refreshData()" class="btn-header">🔄 Refresh</button>
+        </div>
+    </div>
+
+    <!-- Data Source Tabs -->
+    <div style="max-width: 1400px; margin: 0 auto; padding: 0 1rem;">
+        <div style="display: flex; gap: 0.5rem; margin: 1rem 0;">
+            <button id="tab-claude" onclick="switchDataSource('claude')"
+                style="padding: 0.5rem 1rem; border: none; background: #667eea; color: white; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                📁 Claude Code
+            </button>
+            <button id="tab-opencode" onclick="switchDataSource('opencode')"
+                style="padding: 0.5rem 1rem; border: none; background: #e5e7eb; color: #374151; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                📂 OpenCode
             </button>
         </div>
     </div>
-    
-    <div class="container">
-        <!-- Projects Table First -->
+
+    <!-- Claude Code Section -->
+    <div id="claude-section" class="container">
         <div class="table-container">
             <div class="table-header">
                 <div>
-                    <h2>Projects</h2>
+                    <h2>Claude Code Projects</h2>
                     <div class="table-info">
-                        <span id="project-count-info">Loading...</span>
+                        <span id="claude-project-count-info">Loading...</span>
                     </div>
                 </div>
                 <div class="table-controls">
                     <div class="filter-group">
                         <label>Search:</label>
-                        <input type="text" id="projects-search" placeholder="Search projects..." 
+                        <input type="text" id="claude-search" placeholder="Search projects..."
                             oninput="filterProjects()" class="filter-search">
                     </div>
                     <div class="filter-group">
@@ -136,57 +136,42 @@
                     </div>
                 </div>
             </div>
-        
+
             <div class="table-wrapper">
-                <table class="data-table" id="projects-table">
+                <table class="data-table" id="claude-table">
                     <thead>
                         <tr>
-                            <th onclick="sortProjectsTable('display_name')" class="sortable">Project</th>
-                            <th onclick="sortProjectsTable('last_modified')" class="sortable sort-desc">Last Active</th>
-                            <th onclick="sortProjectsTable('duration')" class="sortable">Duration</th>
-                            <th onclick="sortProjectsTable('cost')" class="sortable">Cost
+                            <th onclick="sortTable('display_name')" class="sortable">Project</th>
+                            <th onclick="sortTable('session_count')" class="sortable">Sessions</th>
+                            <th onclick="sortTable('command_count')" class="sortable">Commands</th>
+                            <th onclick="sortTable('first_used')" class="sortable">First Used</th>
+                            <th onclick="sortTable('last_modified')" class="sortable sort-desc">Last Active</th>
+                            <th onclick="sortTable('duration')" class="sortable">Duration</th>
+                            <th onclick="sortTable('cost')" class="sortable">Cost
                                 <span class="tooltip-info-icon"
-                                      onmouseover="showTooltip('overview-cost-tooltip')" 
-                                      onmouseout="hideTooltip('overview-cost-tooltip')">ⓘ</span>
-                                <div id="overview-cost-tooltip" class="tooltip-dark position-below tooltip-sm">
+                                      onmouseover="showTooltip('cost-tooltip')"
+                                      onmouseout="hideTooltip('cost-tooltip')">ⓘ</span>
+                                <div id="cost-tooltip" class="tooltip-dark position-below tooltip-sm">
                                     <div style="font-size: 0.85rem; line-height: 1.4;">
                                         What you would've paid if you were<br>using the Claude API directly.
                                     </div>
-                                    <div style="font-size: 0.8rem; opacity: 0.8; margin-top: 0.5rem;">
-                                        Based on current token prices from LiteLLM
-                                    </div>
                                 </div>
                             </th>
-                            <th onclick="sortProjectsTable('commands')" class="sortable">Commands
+                            <th onclick="sortTable('tokens_per_cmd')" class="sortable">Tokens/Cmd</th>
+                            <th onclick="sortTable('steps_per_cmd')" class="sortable">Steps/Cmd
                                 <span class="tooltip-info-icon"
-                                      onmouseover="showTooltip('overview-commands-tooltip')" 
-                                      onmouseout="hideTooltip('overview-commands-tooltip')">ⓘ</span>
-                                <div id="overview-commands-tooltip" class="tooltip-dark position-below tooltip-sm">
-                                    User instructions
-                                </div>
-                            </th>
-                            <th onclick="sortProjectsTable('tokens_per_cmd')" class="sortable">Tokens/Cmd</th>
-                            <th onclick="sortProjectsTable('steps_per_cmd')" class="sortable">Steps/Cmd
-                                <span class="tooltip-info-icon"
-                                      onmouseover="showTooltip('overview-steps-tooltip')" 
-                                      onmouseout="hideTooltip('overview-steps-tooltip')">ⓘ</span>
-                                <div id="overview-steps-tooltip" class="tooltip-dark position-below tooltip-sm">
+                                      onmouseover="showTooltip('steps-tooltip')"
+                                      onmouseout="hideTooltip('steps-tooltip')">ⓘ</span>
+                                <div id="steps-tooltip" class="tooltip-dark position-below tooltip-sm">
                                     Average number of steps per user command
                                 </div>
                             </th>
-                            <th onclick="sortProjectsTable('cmds_per_context')" class="sortable">Cmds/Context
+                            <th onclick="sortTable('cmds_per_context')" class="sortable">Cmds/Context</th>
+                            <th onclick="sortTable('books')" class="sortable">Books
                                 <span class="tooltip-info-icon"
-                                      onmouseover="showTooltip('overview-context-tooltip')" 
-                                      onmouseout="hideTooltip('overview-context-tooltip')">ⓘ</span>
-                                <div id="overview-context-tooltip" class="tooltip-dark position-below tooltip-sm">
-                                    Average commands before context window fills up
-                                </div>
-                            </th>
-                            <th onclick="sortProjectsTable('books')" class="sortable">Books
-                                <span class="tooltip-info-icon"
-                                      onmouseover="showTooltip('overview-books-tooltip')" 
-                                      onmouseout="hideTooltip('overview-books-tooltip')">ⓘ</span>
-                                <div id="overview-books-tooltip" class="tooltip-dark position-below tooltip-sm">
+                                      onmouseover="showTooltip('books-tooltip')"
+                                      onmouseout="hideTooltip('books-tooltip')">ⓘ</span>
+                                <div id="books-tooltip" class="tooltip-dark position-below tooltip-sm">
                                     The number of books you could've written.<br>
                                     Assuming 60k words/book.
                                 </div>
@@ -194,14 +179,14 @@
                             <th>Status</th>
                         </tr>
                     </thead>
-                    <tbody id="projects-tbody">
+                    <tbody id="claude-tbody">
                         <tr>
-                            <td colspan="10" class="table-loading">Loading projects...</td>
+                            <td colspan="12" class="table-loading">Loading projects...</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-            
+
             <div class="table-pagination" id="projects-pagination" style="display: none;">
                 <button onclick="changeProjectsPage(-1)" id="projects-prev-btn">Previous</button>
                 <div class="page-info">
@@ -211,24 +196,23 @@
                 <button onclick="changeProjectsPage(1)" id="projects-next-btn">Next</button>
             </div>
         </div>
-        
-        <!-- Charts Section -->
+
         <div class="charts-section">
             <div class="chart-container">
                 <h2>Token Usage</h2>
                 <div class="chart-subtitle" id="token-summary">
-                    <div id="token-all-time">All-time: <span class="token-input">0</span> input • <span class="token-output">0</span> output</div>
-                    <div id="token-30-days">30-day: <span class="token-input">0</span> input • <span class="token-output">0</span> output</div>
+                    <div id="token-all-time">All-time: <span class="token-input">0</span> input · <span class="token-output">0</span> output</div>
+                    <div id="token-30-days">30-day: <span class="token-input">0</span> input · <span class="token-output">0</span> output</div>
                 </div>
                 <div id="overview-token-date-picker" class="date-range-picker-compact"></div>
                 <canvas id="token-usage-chart"></canvas>
             </div>
-            
+
             <div class="chart-container">
                 <h2>Direct API Cost</h2>
                 <div class="chart-subtitle" id="cost-summary">
                     <span id="total-cost-all-time">All-time: $0.00</span>
-                    <span class="separator">•</span>
+                    <span class="separator">·</span>
                     <span id="total-cost-30-days">30-day: $0.00</span>
                 </div>
                 <div id="overview-cost-date-picker" class="date-range-picker-compact"></div>
@@ -236,7 +220,172 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- OpenCode Section (hidden by default) -->
+    <div id="opencode-section" class="container" style="display: none;">
+        <div class="table-container">
+            <div class="table-header">
+                <div>
+                    <h2>OpenCode Projects</h2>
+                    <div class="table-info">
+                        <span id="opencode-project-count-info">Loading...</span>
+                    </div>
+                </div>
+                <div class="table-controls">
+                    <div class="filter-group">
+                        <label>Search:</label>
+                        <input type="text" id="opencode-search" placeholder="Search projects..."
+                            oninput="filterOpenCodeProjects()" class="filter-search">
+                    </div>
+                    <div class="filter-group">
+                        <label>Per page:</label>
+                        <select id="opencode-per-page" onchange="updateOpenCodePerPage()">
+                            <option value="10" selected>10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="data-table" id="opencode-table">
+                    <thead>
+                        <tr>
+                            <th onclick="sortOpenCodeTable('display_name')" class="sortable">Project</th>
+                            <th onclick="sortOpenCodeTable('session_count')" class="sortable">Sessions</th>
+                            <th onclick="sortOpenCodeTable('command_count')" class="sortable">Commands</th>
+                            <th onclick="sortOpenCodeTable('first_used')" class="sortable">First Used</th>
+                            <th onclick="sortOpenCodeTable('last_modified')" class="sortable sort-desc">Last Active</th>
+                            <th onclick="sortOpenCodeTable('duration')" class="sortable">Duration</th>
+                            <th>Cost
+                                <span class="tooltip-info-icon"
+                                      onmouseover="showTooltip('opencode-cost-tooltip')"
+                                      onmouseout="hideTooltip('opencode-cost-tooltip')">ⓘ</span>
+                                <div id="opencode-cost-tooltip" class="tooltip-dark position-below tooltip-sm">
+                                    <div style="font-size: 0.85rem; line-height: 1.4;">
+                                        OpenCode does not track cost data
+                                    </div>
+                                </div>
+                            </th>
+                            <th onclick="sortOpenCodeTable('tokens_per_cmd')" class="sortable">Tokens/Cmd</th>
+                            <th>Steps/Cmd
+                                <span class="tooltip-info-icon"
+                                      onmouseover="showTooltip('opencode-steps-tooltip')"
+                                      onmouseout="hideTooltip('opencode-steps-tooltip')">ⓘ</span>
+                                <div id="opencode-steps-tooltip" class="tooltip-dark position-below tooltip-sm">
+                                    OpenCode does not track steps data
+                                </div>
+                            </th>
+                            <th>Cmds/Context</th>
+                            <th onclick="sortOpenCodeTable('books')" class="sortable">Books
+                                <span class="tooltip-info-icon"
+                                      onmouseover="showTooltip('opencode-books-tooltip')"
+                                      onmouseout="hideTooltip('opencode-books-tooltip')">ⓘ</span>
+                                <div id="opencode-books-tooltip" class="tooltip-dark position-below tooltip-sm">
+                                    The number of books you could've written.<br>
+                                    Assuming 60k words/book.
+                                </div>
+                            </th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="opencode-tbody">
+                        <tr>
+                            <td colspan="12" class="table-loading">Loading OpenCode projects...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-pagination" id="opencode-pagination" style="display: none;">
+                <button onclick="changeOpenCodePage(-1)" id="opencode-prev-btn">Previous</button>
+                <div class="page-info">
+                    Page <input type="number" id="opencode-page-input" value="1" onchange="goToOpenCodePage()">
+                    of <span id="opencode-total-pages">1</span>
+                </div>
+                <button onclick="changeOpenCodePage(1)" id="opencode-next-btn">Next</button>
+            </div>
+        </div>
+
+        <div class="charts-section">
+            <div class="chart-container">
+                <h2>Token Usage</h2>
+                <div class="chart-subtitle" id="opencode-token-summary">
+                    <div id="opencode-token-all-time">All-time: <span class="token-input">0</span> input · <span class="token-output">0</span> output</div>
+                </div>
+                <canvas id="opencode-token-chart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h2>Session Statistics</h2>
+                <div class="chart-subtitle" id="opencode-session-summary">
+                    <span id="opencode-total-sessions">Total sessions: 0</span>
+                    <span class="separator">·</span>
+                    <span id="opencode-total-messages">Total messages: 0</span>
+                </div>
+                <canvas id="opencode-session-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; border-radius: 12px; padding: 2rem; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+            <h2 style="margin-top: 0;">📥 导出数据</h2>
+
+            <div style="margin: 1rem 0;">
+                <label style="font-weight: 500;">数据源：</label><br>
+                <select id="export-source" style="width: 100%; padding: 0.5rem; margin-top: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                    <option value="claude">Claude Code</option>
+                    <option value="opencode">OpenCode</option>
+                    <option value="both">两者都导出</option>
+                </select>
+            </div>
+
+            <div style="margin: 1rem 0;">
+                <label style="font-weight: 500;">项目筛选（可选）：</label><br>
+                <select id="export-project" style="width: 100%; padding: 0.5rem; margin-top: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                    <option value="">所有项目</option>
+                </select>
+            </div>
+
+            <div style="margin: 1rem 0;">
+                <label style="font-weight: 500;">导出类型：</label><br>
+                <select id="export-type" style="width: 100%; padding: 0.5rem; margin-top: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                    <option value="summary">汇总报告 (Markdown)</option>
+                    <option value="detailed">详细报告 (Markdown，含提示词)</option>
+                    <option value="raw">原始数据 (JSON)</option>
+                </select>
+            </div>
+                    <option value="raw">原始数据 (JSON)</option>
+                    <option value="analysis">分析报告 (JSON)</option>
+                    <option value="markdown">分析报告 (Markdown)</option>
+                </select>
+            </div>
+
+            <div style="margin: 1rem 0;">
+                <label style="font-weight: 500;">日期范围（可选）：</label><br>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; align-items: center;">
+                    <input type="date" id="export-start-date" style="flex: 1; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                    <span>至</span>
+                    <input type="date" id="export-end-date" style="flex: 1; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button onclick="doExport()" style="flex: 1; padding: 0.75rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                    导出
+                </button>
+                <button onclick="hideExportModal()" style="flex: 1; padding: 0.75rem; background: #e5e7eb; color: #374151; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                    取消
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/overview.js"></script>
+    <script src="/static/js/overview-export.js"></script>
 </body>
 </html>

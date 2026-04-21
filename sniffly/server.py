@@ -186,6 +186,13 @@ async def project_analytics(project_name: str):
     return FileResponse(os.path.join(BASE_DIR, "templates", "project-analytics.html"))
 
 
+# Analysis page
+@app.get("/analysis")
+async def analysis_page():
+    """Serve the AI usage analysis page"""
+    return FileResponse(os.path.join(BASE_DIR, "templates", "analysis.html"))
+
+
 # Set project endpoint
 @app.post("/api/project")
 async def set_project(data: dict[str, str]):
@@ -1189,6 +1196,255 @@ async def create_share_link(data: dict[str, Any], request: Request):
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "mode": "local"}
+
+
+# ============================================
+# OpenCode API Endpoints
+# ============================================
+
+@app.get("/api/opencode/info")
+async def get_opencode_info():
+    """Get OpenCode database information"""
+    try:
+        from sniffly.utils.opencode_finder import get_opencode_db_info
+        info = get_opencode_db_info()
+        return JSONResponse(info)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/opencode/projects")
+async def get_opencode_projects():
+    """Get all OpenCode projects"""
+    try:
+        from sniffly.utils.opencode_finder import list_opencode_projects
+        projects = list_opencode_projects()
+        return JSONResponse({"projects": projects})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/opencode/stats")
+async def get_opencode_stats(
+    project_path: str | None = None,
+    start_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    end_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+):
+    """Get OpenCode statistics"""
+    try:
+        from sniffly.core.opencode_processor import OpenCodeLogProcessor
+        processor = OpenCodeLogProcessor()
+        stats = processor.calculate_statistics(project_path, start_date, end_date)
+        processor.close()
+        return JSONResponse(stats)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================
+# Export API Endpoints
+# ============================================
+
+@app.post("/api/export/claude")
+async def export_claude_data(data: dict[str, str | None]):
+    """Export Claude Code usage data"""
+    try:
+        from sniffly.services.export_service import ClaudeExportService
+        service = ClaudeExportService()
+
+        project_path = data.get("project_path")
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+        output_format = data.get("format", "json")
+
+        result = service.export(project_path, start_date, end_date)
+        return JSONResponse(result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/export/opencode")
+async def export_opencode_data(data: dict[str, str | None]):
+    """Export OpenCode usage data"""
+    try:
+        from sniffly.services.export_service import OpenCodeExportService
+        service = OpenCodeExportService()
+
+        project_path = data.get("project_path")
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+
+        result = service.export(project_path, start_date, end_date)
+        return JSONResponse(result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/export/claude/project")
+async def export_claude_project(data: dict[str, str | None]):
+    """Export Claude Code data for a specific project"""
+    try:
+        from sniffly.services.export_service import ClaudeExportService
+        service = ClaudeExportService()
+
+        project_name = data.get("project_name")
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+
+        # Find project path by name
+        claude_base = Path.home() / ".claude" / "projects"
+        project_path = None
+        for p in claude_base.iterdir():
+            if p.is_dir():
+                # Check if this project matches
+                slug = p.name.replace("-", "/")
+                if project_name in p.name or project_name in slug:
+                    project_path = str(p)
+                    break
+
+        result = service.export(project_path, start_date, end_date)
+        result["project_name"] = project_name
+        return JSONResponse(result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/export/opencode/project")
+async def export_opencode_project(data: dict[str, str | None]):
+    """Export OpenCode data for a specific project"""
+    try:
+        from sniffly.services.export_service import OpenCodeExportService
+        service = OpenCodeExportService()
+
+        project_name = data.get("project_name")
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+
+        result = service.export(project_name, start_date, end_date)
+        result["project_name"] = project_name
+        return JSONResponse(result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================
+# Analysis API Endpoints
+# ============================================
+
+@app.post("/api/analyze")
+async def analyze_usage_data(data: dict):
+    """Analyze exported AI usage data"""
+    try:
+        from sniffly.services.analysis_service import AIUsageAnalyzer
+        analyzer = AIUsageAnalyzer()
+
+        report = analyzer.generate_report(data)
+        return JSONResponse(report)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analyze/markdown")
+async def analyze_usage_markdown(data: dict):
+    """Analyze exported AI usage data and return Markdown report"""
+    try:
+        from sniffly.services.analysis_service import AIUsageAnalyzer
+        from fastapi.responses import PlainTextResponse
+
+        analyzer = AIUsageAnalyzer()
+        markdown = analyzer.generate_markdown_report(data)
+        return PlainTextResponse(markdown, media_type="text/markdown")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/export-and-analyze/claude")
+async def export_and_analyze_claude(data: dict[str, str | None]):
+    """Export and analyze Claude Code data in one request"""
+    try:
+        from sniffly.services.export_service import ClaudeExportService
+        from sniffly.services.analysis_service import AIUsageAnalyzer
+
+        export_service = ClaudeExportService()
+        analyzer = AIUsageAnalyzer()
+
+        project_path = data.get("project_path")
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+
+        exported = export_service.export(project_path, start_date, end_date)
+        analysis = analyzer.generate_report(exported)
+
+        return JSONResponse({
+            "export_data": exported,
+            "analysis": analysis
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/export-and-analyze/opencode")
+async def export_and_analyze_opencode(data: dict[str, str | None]):
+    """Export and analyze OpenCode data in one request"""
+    try:
+        from sniffly.services.export_service import OpenCodeExportService
+        from sniffly.services.analysis_service import AIUsageAnalyzer
+
+        export_service = OpenCodeExportService()
+        analyzer = AIUsageAnalyzer()
+
+        project_path = data.get("project_path")
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+
+        exported = export_service.export(project_path, start_date, end_date)
+        analysis = analyzer.generate_report(exported)
+
+        return JSONResponse({
+            "export_data": exported,
+            "analysis": analysis
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/compare")
+async def compare_sources(data: dict):
+    """Compare Claude Code and OpenCode usage"""
+    try:
+        from sniffly.services.analysis_service import AIUsageAnalyzer
+        analyzer = AIUsageAnalyzer()
+
+        claude_data = data.get("claude", {})
+        opencode_data = data.get("opencode", {})
+
+        claude_analysis = analyzer.generate_report(claude_data) if claude_data else None
+        opencode_analysis = analyzer.generate_report(opencode_data) if opencode_data else None
+
+        return JSONResponse({
+            "claude": claude_analysis,
+            "opencode": opencode_analysis
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Favicon endpoint to prevent 404 errors
