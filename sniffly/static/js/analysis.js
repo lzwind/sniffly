@@ -255,7 +255,8 @@ function renderAnalysisViewInto(container, data) {
     container.appendChild(recommendations);
 
     // Detailed sections
-    container.appendChild(createSection(renderActivitySection(analysis.activity_analysis)));
+    var exportSummary = data.summary || (data.export_data && data.export_data.summary) || null;
+    container.appendChild(createSection(renderActivitySection(analysis.activity_analysis, exportSummary)));
     container.appendChild(createSection(renderTaskEfficiencySection(analysis.task_efficiency_analysis)));
     container.appendChild(createSection(renderTokenEfficiencySection(analysis.token_efficiency_analysis)));
     container.appendChild(createSection(renderToolUsageSection(analysis.tool_usage_analysis)));
@@ -282,11 +283,21 @@ function translateMetric(metric) {
     return translations[metric] || metric;
 }
 
-function renderActivitySection(data) {
+function renderActivitySection(data, summary) {
+    var totalRequests = summary ? (summary.total_requests || 0) : 0;
+    var totalPrompts = summary ? (summary.total_prompts || 0) : 0;
     return `
         <div class="metric-section">
             <h3>活跃度分析</h3>
             <div class="metric-grid">
+                <div class="metric-item">
+                    <div class="metric-label">总消息数</div>
+                    <div class="metric-value">${formatNumber(totalRequests)}</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">用户消息数</div>
+                    <div class="metric-value">${formatNumber(totalPrompts)}</div>
+                </div>
                 <div class="metric-item">
                     <div class="metric-label">活跃天数</div>
                     <div class="metric-value">${data.total_active_days} 天</div>
