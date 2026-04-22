@@ -6,8 +6,67 @@ var currentSource = 'claude';
 var currentAnalysis = null;
 var multiAnalysisResults = null;
 
+// Password protection: stored in JS variable only (cleared on refresh)
+var analysisPassword = '';
+
+// Intercept fetch to attach password header
+var _originalFetch = window.fetch;
+window.fetch = function(url, options) {
+    options = options || {};
+    if (analysisPassword && (!url.startsWith('http') || url.startsWith(window.location.origin))) {
+        options.headers = options.headers || {};
+        if (options.headers instanceof Headers) {
+            options.headers.set('X-Analysis-Password', analysisPassword);
+        } else {
+            options.headers['X-Analysis-Password'] = analysisPassword;
+        }
+    }
+    return _originalFetch.call(this, url, options);
+};
+
+// Password overlay logic
+function initPasswordCheck() {
+    fetch('/api/analysis/auth', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({password: ''})
+    }).then(r => r.json()).then(data => {
+        if (data.required === false) return; // No password configured
+        // Password required - show overlay
+        var overlay = document.getElementById('password-overlay');
+        if (!overlay) return;
+        overlay.style.display = 'flex';
+        document.getElementById('analysis-pw').focus();
+        document.getElementById('analysis-pw-btn').onclick = submitAnalysisPassword;
+        document.getElementById('analysis-pw').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') submitAnalysisPassword();
+        });
+    }).catch(function() {});
+}
+
+function submitAnalysisPassword() {
+    var pw = document.getElementById('analysis-pw').value;
+    if (!pw) return;
+    fetch('/api/analysis/auth', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({password: pw})
+    }).then(function(r) {
+        if (r.ok) {
+            analysisPassword = pw;
+            document.getElementById('password-overlay').style.display = 'none';
+        } else {
+            document.getElementById('analysis-pw-err').style.display = 'block';
+            document.getElementById('analysis-pw').value = '';
+            document.getElementById('analysis-pw').focus();
+        }
+    }).catch(function() {});
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+    initPasswordCheck();
+
     // Set default date range (last 30 days)
     const endDate = new Date();
     const startDate = new Date();

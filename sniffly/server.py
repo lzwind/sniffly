@@ -91,15 +91,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ANALYSIS_PASSWORD = config.get("analysis_password", "")
 
 
-def _password_token(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
-
 
 def _check_analysis_auth(request: Request) -> bool:
     if not ANALYSIS_PASSWORD:
         return True
-    token = request.cookies.get("analysis_auth")
-    return token == _password_token(ANALYSIS_PASSWORD)
+    password = request.headers.get("X-Analysis-Password", "")
+    return password == ANALYSIS_PASSWORD
 
 
 def _analysis_login_page() -> str:
@@ -247,10 +244,8 @@ async def project_analytics(project_name: str):
 
 # Analysis page
 @app.get("/analysis")
-async def analysis_page(request: Request):
-    """Serve the AI usage analysis page (password protected if configured)"""
-    if not _check_analysis_auth(request):
-        return HTMLResponse(_analysis_login_page())
+async def analysis_page():
+    """Serve the AI usage analysis page"""
     return FileResponse(os.path.join(BASE_DIR, "templates", "analysis.html"))
 
 
@@ -258,18 +253,11 @@ async def analysis_page(request: Request):
 async def analysis_auth(request: Request):
     """Verify password for analysis page access"""
     if not ANALYSIS_PASSWORD:
-        return JSONResponse({"success": True})
+        return JSONResponse({"success": True, "required": False})
     data = await request.json()
     if data.get("password") != ANALYSIS_PASSWORD:
         raise HTTPException(status_code=401, detail="密码错误")
-    response = JSONResponse({"success": True})
-    response.set_cookie(
-        key="analysis_auth",
-        value=_password_token(ANALYSIS_PASSWORD),
-        httponly=True,
-        samesite="lax",
-    )
-    return response
+    return JSONResponse({"success": True, "required": True})
 
 
 # Set project endpoint
