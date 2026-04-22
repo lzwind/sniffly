@@ -1582,12 +1582,21 @@ async def analyze_batch(request: Request, data: dict):
                     "member_count": 0,
                     "total_requests": 0,
                     "total_scores": 0.0,
+                    "total_prompts": 0,
+                    "total_tokens": 0,
                     "top_user": name,
                     "top_user_score": score,
                 }
             groups[group]["member_count"] += 1
             groups[group]["total_requests"] += summary.get("total_requests", 0)
             groups[group]["total_scores"] += score
+            groups[group]["total_prompts"] += summary.get("total_prompts", 0)
+            # Aggregate tokens
+            tokens = summary.get("total_tokens", 0)
+            if isinstance(tokens, dict):
+                groups[group]["total_tokens"] += tokens.get("total", tokens.get("input", 0) + tokens.get("output", 0))
+            else:
+                groups[group]["total_tokens"] += tokens
             if score > groups[group]["top_user_score"]:
                 groups[group]["top_user"] = name
                 groups[group]["top_user_score"] = score

@@ -206,6 +206,27 @@ function renderAnalysisViewInto(container, data) {
     `;
     container.appendChild(scoreSection);
 
+    // Data Overview Card (from export summary)
+    if (data.summary || data.export_data?.summary) {
+        var sum = data.summary || data.export_data.summary;
+        var totalTokens = 0;
+        if (typeof sum.total_tokens === 'object' && sum.total_tokens !== null) {
+            totalTokens = sum.total_tokens.total || (sum.total_tokens.input || 0) + (sum.total_tokens.output || 0);
+        } else {
+            totalTokens = sum.total_tokens || 0;
+        }
+        var summarySection = document.createElement('div');
+        summarySection.className = 'metric-section';
+        summarySection.innerHTML = '<h3>数据概览</h3>' +
+            '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-top: 0.5rem;">' +
+                '<div class="summary-stat"><div class="value" style="font-size: 1.3rem; font-weight: 600; color: #667eea;">' + formatNumber(sum.total_requests || 0) + '</div><div class="label" style="color: #6b7280; font-size: 0.85rem; margin-top: 0.25rem;">总消息数</div></div>' +
+                '<div class="summary-stat"><div class="value" style="font-size: 1.3rem; font-weight: 600; color: #667eea;">' + formatNumber(sum.total_prompts || 0) + '</div><div class="label" style="color: #6b7280; font-size: 0.85rem; margin-top: 0.25rem;">用户消息数</div></div>' +
+                '<div class="summary-stat"><div class="value" style="font-size: 1.3rem; font-weight: 600; color: #667eea;">' + formatNumber(totalTokens) + '</div><div class="label" style="color: #6b7280; font-size: 0.85rem; margin-top: 0.25rem;">Token 总量</div></div>' +
+                '<div class="summary-stat"><div class="value" style="font-size: 1.3rem; font-weight: 600; color: #667eea;">' + (sum.total_cost ? '$' + sum.total_cost.toFixed(2) : '$0.00') + '</div><div class="label" style="color: #6b7280; font-size: 0.85rem; margin-top: 0.25rem;">总费用</div></div>' +
+            '</div>';
+        container.appendChild(summarySection);
+    }
+
     // Strengths and Improvements
     const strengthImprovement = document.createElement('div');
     strengthImprovement.className = 'strengths-improvements';
@@ -981,6 +1002,8 @@ function renderMultiResults(result) {
                             <th>所属组</th>
                             <th>总消息数</th>
                             <th>用户消息数</th>
+                            <th>Token</th>
+                            <th>提示词</th>
                             <th>活跃等级</th>
                         </tr>
                     </thead>
@@ -999,6 +1022,8 @@ function renderMultiResults(result) {
                             <th>人数</th>
                             <th>总消息数</th>
                             <th>平均消息数</th>
+                            <th>Token</th>
+                            <th>提示词</th>
                             <th>最高使用者</th>
                             <th>占比</th>
                         </tr>
@@ -1036,6 +1061,13 @@ function renderRankingTable() {
 
     tbody.innerHTML = display.map((person, index) => {
         const totalReqs = person.summary.total_requests || 0;
+        var totalTokens = 0;
+        if (typeof person.summary.total_tokens === 'object' && person.summary.total_tokens !== null) {
+            totalTokens = person.summary.total_tokens.total || (person.summary.total_tokens.input || 0) + (person.summary.total_tokens.output || 0);
+        } else {
+            totalTokens = person.summary.total_tokens || 0;
+        }
+        var promptCount = person.analysis.prompt_quantity_analysis?.total_prompts || person.summary.total_prompts || 0;
         const rank = index + 1;
 
         const medals = ['🥇','🥈','🥉'];
@@ -1054,6 +1086,8 @@ function renderRankingTable() {
             '<td>' + escapeHtml(person.group) + '</td>' +
             '<td>' + formatNumber(totalReqs) + '</td>' +
             '<td>' + formatNumber(person.summary.total_prompts || 0) + '</td>' +
+            '<td>' + formatNumber(totalTokens) + '</td>' +
+            '<td>' + promptCount + '</td>' +
             '<td><span class="level-badge">' + activityText + '</span></td>' +
             '</tr>';
     }).join('');
@@ -1078,6 +1112,8 @@ function renderGroupsTable() {
             '<td>' + data.member_count + '</td>' +
             '<td>' + formatNumber(data.total_requests) + '</td>' +
             '<td style="font-weight: 600; color: #667eea;">' + avgMsgs + '</td>' +
+            '<td>' + formatNumber(data.total_tokens || 0) + '</td>' +
+            '<td>' + formatNumber(data.total_prompts || 0) + '</td>' +
             '<td>' + escapeHtml(data.top_user) + '</td>' +
             '<td>' + share + '%</td>' +
             '</tr>';
@@ -1086,11 +1122,15 @@ function renderGroupsTable() {
     // Add totals row
     var totalMembers = Object.values(groups).reduce((sum, g) => sum + g.member_count, 0);
     var overallAvg = totalMembers > 0 ? (totalRequests / totalMembers).toFixed(0) : '0';
+    var totalTokens = Object.values(groups).reduce((sum, g) => sum + (g.total_tokens || 0), 0);
+    var totalPrompts = Object.values(groups).reduce((sum, g) => sum + (g.total_prompts || 0), 0);
     tbody.innerHTML += '<tr style="font-weight: 600; background: #f0f4ff; border-top: 2px solid #667eea;">' +
         '<td>合计</td>' +
         '<td>' + totalMembers + '</td>' +
         '<td>' + formatNumber(totalRequests) + '</td>' +
         '<td style="color: #667eea;">' + overallAvg + '</td>' +
+        '<td>' + formatNumber(totalTokens) + '</td>' +
+        '<td>' + formatNumber(totalPrompts) + '</td>' +
         '<td>-</td>' +
         '<td>100%</td>' +
         '</tr>';
@@ -1132,7 +1172,8 @@ function showIndividualDetail(personName) {
 
     renderAnalysisViewInto(container, {
         analysis: person.analysis,
-        export_data: person.export_data
+        export_data: person.export_data,
+        summary: person.summary
     });
 }
 
