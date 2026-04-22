@@ -25,7 +25,7 @@ DEFAULTS = {
     "share_base_url": "https://sniffly.dev",
     "share_api_url": "https://sniffly.dev",
     "share_enabled": True,
-    "analysis_password": "",
+    "analysis_password": "123",
 }
 
 # Map config keys to environment variable names
