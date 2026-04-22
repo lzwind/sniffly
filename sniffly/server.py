@@ -4,6 +4,7 @@ FastAPI application for Claude Analytics Local Mode
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -19,7 +20,7 @@ import importlib.metadata
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from sniffly.api.messages import filter_messages_by_time, get_messages_summary, get_paginated_messages
@@ -85,6 +86,64 @@ logger.debug(f"Memory cache initialized: {max_projects} projects, max {max_mb_pe
 
 # Get base directories
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Analysis page password protection
+ANALYSIS_PASSWORD = config.get("analysis_password", "")
+
+
+def _password_token(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+def _check_analysis_auth(request: Request) -> bool:
+    if not ANALYSIS_PASSWORD:
+        return True
+    token = request.cookies.get("analysis_auth")
+    return token == _password_token(ANALYSIS_PASSWORD)
+
+
+def _analysis_login_page() -> str:
+    return """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分析页面 - 密码验证</title>
+<style>
+body{display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+.card{background:#fff;border-radius:16px;padding:2.5rem;box-shadow:0 20px 60px rgba(0,0,0,.15);width:360px;text-align:center}
+h2{margin:0 0 .5rem;color:#1f2937;font-size:1.4rem}
+p{color:#6b7280;margin:0 0 1.5rem;font-size:.9rem}
+input{width:100%;padding:.75rem;border:2px solid #e5e7eb;border-radius:8px;font-size:1rem;box-sizing:border-box;outline:none;transition:border-color .2s}
+input:focus{border-color:#667eea}
+button{width:100%;padding:.75rem;margin-top:1rem;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;font-weight:600;transition:opacity .2s}
+button:hover{opacity:.9}
+.error{color:#ef4444;font-size:.85rem;margin-top:.75rem;display:none}
+</style>
+</head>
+<body>
+<div class="card">
+<h2>🔒 密码验证</h2>
+<p>请输入密码以访问分析页面</p>
+<input type="password" id="pw" placeholder="请输入密码" autofocus>
+<button onclick="submit()">验证</button>
+<div class="error" id="err">密码错误，请重试</div>
+</div>
+<script>
+document.getElementById('pw').addEventListener('keydown',function(e){if(e.key==='Enter')submit()});
+async function submit(){
+  const pw=document.getElementById('pw').value;
+  if(!pw)return;
+  try{
+    const r=await fetch('/api/analysis/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
+    if(r.ok){window.location.href='/analysis';return}
+  }catch(e){}
+  document.getElementById('err').style.display='block';
+  document.getElementById('pw').value='';
+}
+</script>
+</body>
+</html>"""
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
@@ -188,9 +247,29 @@ async def project_analytics(project_name: str):
 
 # Analysis page
 @app.get("/analysis")
-async def analysis_page():
-    """Serve the AI usage analysis page"""
+async def analysis_page(request: Request):
+    """Serve the AI usage analysis page (password protected if configured)"""
+    if not _check_analysis_auth(request):
+        return HTMLResponse(_analysis_login_page())
     return FileResponse(os.path.join(BASE_DIR, "templates", "analysis.html"))
+
+
+@app.post("/api/analysis/auth")
+async def analysis_auth(request: Request):
+    """Verify password for analysis page access"""
+    if not ANALYSIS_PASSWORD:
+        return JSONResponse({"success": True})
+    data = await request.json()
+    if data.get("password") != ANALYSIS_PASSWORD:
+        raise HTTPException(status_code=401, detail="密码错误")
+    response = JSONResponse({"success": True})
+    response.set_cookie(
+        key="analysis_auth",
+        value=_password_token(ANALYSIS_PASSWORD),
+        httponly=True,
+        samesite="lax",
+    )
+    return response
 
 
 # Set project endpoint
@@ -1340,8 +1419,10 @@ async def export_opencode_project(data: dict[str, str | None]):
 # ============================================
 
 @app.post("/api/analyze")
-async def analyze_usage_data(data: dict):
+async def analyze_usage_data(request: Request, data: dict):
     """Analyze exported AI usage data"""
+    if not _check_analysis_auth(request):
+        raise HTTPException(status_code=401, detail="未授权")
     try:
         from sniffly.services.analysis_service import AIUsageAnalyzer
         analyzer = AIUsageAnalyzer()
@@ -1355,8 +1436,10 @@ async def analyze_usage_data(data: dict):
 
 
 @app.post("/api/analyze/markdown")
-async def analyze_usage_markdown(data: dict):
+async def analyze_usage_markdown(request: Request, data: dict):
     """Analyze exported AI usage data and return Markdown report"""
+    if not _check_analysis_auth(request):
+        raise HTTPException(status_code=401, detail="未授权")
     try:
         from sniffly.services.analysis_service import AIUsageAnalyzer
         from fastapi.responses import PlainTextResponse
@@ -1371,8 +1454,10 @@ async def analyze_usage_markdown(data: dict):
 
 
 @app.post("/api/export-and-analyze/claude")
-async def export_and_analyze_claude(data: dict[str, str | None]):
+async def export_and_analyze_claude(request: Request, data: dict[str, str | None]):
     """Export and analyze Claude Code data in one request"""
+    if not _check_analysis_auth(request):
+        raise HTTPException(status_code=401, detail="未授权")
     try:
         from sniffly.services.export_service import ClaudeExportService
         from sniffly.services.analysis_service import AIUsageAnalyzer
@@ -1398,8 +1483,10 @@ async def export_and_analyze_claude(data: dict[str, str | None]):
 
 
 @app.post("/api/export-and-analyze/opencode")
-async def export_and_analyze_opencode(data: dict[str, str | None]):
+async def export_and_analyze_opencode(request: Request, data: dict[str, str | None]):
     """Export and analyze OpenCode data in one request"""
+    if not _check_analysis_auth(request):
+        raise HTTPException(status_code=401, detail="未授权")
     try:
         from sniffly.services.export_service import OpenCodeExportService
         from sniffly.services.analysis_service import AIUsageAnalyzer
@@ -1448,8 +1535,10 @@ async def compare_sources(data: dict):
 
 
 @app.post("/api/analyze/batch")
-async def analyze_batch(data: dict):
+async def analyze_batch(request: Request, data: dict):
     """Analyze multiple exported AI usage datasets for multi-person comparison"""
+    if not _check_analysis_auth(request):
+        raise HTTPException(status_code=401, detail="未授权")
     try:
         from sniffly.services.analysis_service import AIUsageAnalyzer
 
