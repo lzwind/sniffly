@@ -826,8 +826,8 @@ class AIUsageAnalyzer:
 
         # Ranking
         lines.append("## 综合排名\n")
-        lines.append("| 排名 | 姓名 | 所属组 | 总消息数 | 用户消息数 | Token | 提示词 | 活跃等级 |")
-        lines.append("|------|------|--------|----------|-----------|-------|--------|----------|")
+        lines.append("| 排名 | 姓名 | 所属组 | 总消息数 | 用户消息数 | 会话数 | Token | 提示词 | 活跃等级 |")
+        lines.append("|------|------|--------|----------|-----------|--------|-------|--------|----------|")
         sorted_results = sorted(results, key=lambda r: r.get("analysis", {}).get("overall_assessment", {}).get("overall_score", 0), reverse=True)
         for i, person in enumerate(sorted_results):
             s = person.get("summary", {})
@@ -835,8 +835,9 @@ class AIUsageAnalyzer:
             pr = s.get("total_prompts", 0)
             tk = s.get("total_tokens", 0)
             pq = person.get("analysis", {}).get("prompt_quantity_analysis", {}).get("total_prompts", pr)
+            sessions = person.get("analysis", {}).get("task_efficiency_analysis", {}).get("total_sessions", 0)
             level = "极高" if reqs >= 5000 else "高" if reqs >= 1000 else "中"
-            lines.append(f"| {i+1} | {person.get('name', '')} | {person.get('group', '')} | {reqs} | {pr} | {tk} | {pq} | {level} |")
+            lines.append(f"| {i+1} | {person.get('name', '')} | {person.get('group', '')} | {reqs} | {pr} | {sessions} | {tk} | {pq} | {level} |")
         lines.append("")
 
         # Groups

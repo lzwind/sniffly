@@ -1087,6 +1087,7 @@ function renderMultiResults(result) {
                             <th>所属组</th>
                             <th>总消息数</th>
                             <th>用户消息数</th>
+                            <th>会话数</th>
                             <th>Token</th>
                             <th>提示词</th>
                             <th>活跃等级</th>
@@ -1167,6 +1168,7 @@ function renderRankingTable() {
         if (totalReqs >= 5000) activityText = '极高';
         else if (totalReqs >= 1000) activityText = '高';
 
+        var sessionCount = person.analysis.task_efficiency_analysis?.total_sessions || person.summary.total_sessions || 0;
         const safeName = escapeHtml(person.name).replace(/'/g, "\\'");
         return '<tr onclick="showIndividualDetail(\'' + safeName + '\')" title="点击查看详细分析">' +
             '<td style="text-align: center;">' + rankDisplay + '</td>' +
@@ -1174,6 +1176,7 @@ function renderRankingTable() {
             '<td>' + escapeHtml(person.group) + '</td>' +
             '<td>' + formatNumber(totalReqs) + '</td>' +
             '<td>' + formatNumber(person.summary.total_prompts || 0) + '</td>' +
+            '<td>' + sessionCount + '</td>' +
             '<td>' + formatNumber(totalTokens) + '</td>' +
             '<td>' + promptCount + '</td>' +
             '<td><span class="level-badge">' + activityText + '</span></td>' +
@@ -1566,8 +1569,8 @@ function exportMultiMarkdown() {
 
     // Ranking table
     lines.push('## 综合排名\n');
-    lines.push('| 排名 | 姓名 | 所属组 | 总消息数 | 用户消息数 | Token | 提示词 | 活跃等级 |');
-    lines.push('|------|------|--------|----------|-----------|-------|--------|----------|');
+    lines.push('| 排名 | 姓名 | 所属组 | 总消息数 | 用户消息数 | 会话数 | Token | 提示词 | 活跃等级 |');
+    lines.push('|------|------|--------|----------|-----------|--------|-------|--------|----------|');
 
     var sorted = result.results.slice().sort(function(a, b) {
         return (b.analysis.overall_assessment?.overall_score || 0) - (a.analysis.overall_assessment?.overall_score || 0);
@@ -1577,8 +1580,9 @@ function exportMultiMarkdown() {
         var prompts = person.summary.total_prompts || 0;
         var tokens = person.summary.total_tokens || 0;
         var pCount = person.analysis.prompt_quantity_analysis?.total_prompts || prompts;
+        var sessions = person.analysis.task_efficiency_analysis?.total_sessions || 0;
         var level = reqs >= 5000 ? '极高' : reqs >= 1000 ? '高' : '中';
-        lines.push('| ' + (i+1) + ' | ' + person.name + ' | ' + person.group + ' | ' + reqs + ' | ' + prompts + ' | ' + tokens + ' | ' + pCount + ' | ' + level + ' |');
+        lines.push('| ' + (i+1) + ' | ' + person.name + ' | ' + person.group + ' | ' + reqs + ' | ' + prompts + ' | ' + sessions + ' | ' + tokens + ' | ' + pCount + ' | ' + level + ' |');
     });
     lines.push('');
 

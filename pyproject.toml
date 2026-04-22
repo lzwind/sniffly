@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sniffly-lzwind"
-version = "0.4.1"
+version = "0.4.2"
 description = "AI Code Analytics Dashboard - Claude Code & OpenCode"
 readme = "README.md"
 requires-python = ">=3.10"
