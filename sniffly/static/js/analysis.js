@@ -1026,26 +1026,41 @@ function renderMultiResults(result) {
         : '0';
 
     content.innerHTML = `
-        <div class="multi-summary-cards">
-            <div class="multi-summary-card">
-                <div class="value">${totalPeople}</div>
-                <div class="label">总人数</div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+            <div class="multi-summary-cards" style="flex: 1;">
+                <div class="multi-summary-card">
+                    <div class="value">${totalPeople}</div>
+                    <div class="label">总人数</div>
+                </div>
+                <div class="multi-summary-card">
+                    <div class="value">${totalGroups}</div>
+                    <div class="label">分组数</div>
+                </div>
+                <div class="multi-summary-card">
+                    <div class="value">${formatNumber(totalRequests)}</div>
+                    <div class="label">总请求数</div>
+                </div>
+                <div class="multi-summary-card">
+                    <div class="value">${avgScore}</div>
+                    <div class="label">平均评分</div>
+                </div>
             </div>
-            <div class="multi-summary-card">
-                <div class="value">${totalGroups}</div>
-                <div class="label">分组数</div>
-            </div>
-            <div class="multi-summary-card">
-                <div class="value">${formatNumber(totalRequests)}</div>
-                <div class="label">总请求数</div>
-            </div>
-            <div class="multi-summary-card">
-                <div class="value">${avgScore}</div>
-                <div class="label">平均评分</div>
-            </div>
+            <button class="btn-export" onclick="exportMultiMarkdown()"
+                    style="background: #10b981; white-space: nowrap; margin-left: 1rem;">📄 导出 Markdown 报告</button>
         </div>
 
-        <div class="multi-sub-tabs">
+        <div id="multi-insights-section" class="metric-section"></div>
+        <div id="multi-scenario-section" class="metric-section"></div>
+        <div class="chart-row">
+            <div class="metric-section"><canvas id="chart-score"></canvas></div>
+            <div class="metric-section"><canvas id="chart-tokens"></canvas></div>
+        </div>
+        <div class="chart-row" style="margin-top: 1.5rem;">
+            <div class="metric-section"><canvas id="chart-prompts"></canvas></div>
+            <div class="metric-section"><canvas id="chart-scenario"></canvas></div>
+        </div>
+
+        <div class="multi-sub-tabs" style="margin-top: 1.5rem;">
             <button class="multi-sub-tab active" onclick="switchMultiTab('ranking')">综合排名</button>
             <button class="multi-sub-tab" onclick="switchMultiTab('groups')">分组汇总</button>
         </div>
@@ -1109,6 +1124,9 @@ function renderMultiResults(result) {
         </div>
     `;
 
+    renderInsights(result);
+    renderScenarioAnalysis(result);
+    renderCharts(result);
     renderRankingTable();
     renderGroupsTable();
 }
@@ -1266,4 +1284,364 @@ function backToRanking() {
 
     const container = document.getElementById('multi-individual-content');
     if (container) container.innerHTML = '';
+}
+
+// ============================================
+// Insights, Scenario Analysis, Charts
+// ============================================
+
+var SCENARIO_TOOL_MAP = {
+    '代码分析与调试': ['Read', 'Write', 'Edit', 'MultiEdit', 'Grep', 'Glob', 'Agent'],
+    '问题排查': ['Bash', 'TaskOutput', 'TaskStop'],
+    'Git操作辅助': [],
+    '文档撰写': ['NotebookEdit'],
+    '开发环境搭建': ['EnterPlanMode', 'ExitPlanMode', 'EnterWorktree', 'ExitWorktree', 'Skill', 'CronCreate', 'CronDelete', 'CronList']
+};
+
+function renderInsights(result) {
+    var el = document.getElementById('multi-insights-section');
+    if (!el || !result.results || result.results.length === 0) return;
+
+    var totalReqs = result.results.reduce(function(s, r) { return s + (r.summary.total_requests || 0); }, 0);
+    var totalPrompts = result.results.reduce(function(s, r) { return s + (r.summary.total_prompts || 0); }, 0);
+
+    var topUser = result.results.reduce(function(max, r) {
+        return (r.summary.total_requests || 0) > (max.summary.total_requests || 0) ? r : max;
+    }, result.results[0]);
+    var topPercent = totalReqs > 0 ? ((topUser.summary.total_requests / totalReqs) * 100).toFixed(1) : '0';
+
+    var avgScore = (result.results.reduce(function(s, r) {
+        return s + (r.analysis.overall_assessment?.overall_score || 0);
+    }, 0) / result.results.length).toFixed(1);
+
+    var avgPrompts = (totalPrompts / result.results.length).toFixed(0);
+
+    var topTokenUser = result.results.reduce(function(max, r) {
+        return (r.summary.total_tokens || 0) > (max.summary.total_tokens || 0) ? r : max;
+    }, result.results[0]);
+
+    var levelDesc = avgScore >= 75 ? '优秀' : avgScore >= 60 ? '良好' : avgScore >= 40 ? '合格' : '待改进';
+
+    el.innerHTML = '<h3>分析结论</h3>' +
+        '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 0.5rem;">' +
+            '<div style="background: #f0f9ff; padding: 1rem; border-radius: 8px; border-left: 4px solid #3b82f6;">' +
+                '<div style="font-size: 0.85rem; color: #6b7280;">最活跃用户</div>' +
+                '<div style="font-size: 1.1rem; font-weight: 600; color: #1e40af; margin-top: 0.3rem;">' + escapeHtml(topUser.name) + '</div>' +
+                '<div style="font-size: 0.8rem; color: #6b7280; margin-top: 0.2rem;">贡献了 ' + topPercent + '% 的请求</div>' +
+            '</div>' +
+            '<div style="background: #f0fdf4; padding: 1rem; border-radius: 8px; border-left: 4px solid #10b981;">' +
+                '<div style="font-size: 0.85rem; color: #6b7280;">整体使用水平</div>' +
+                '<div style="font-size: 1.1rem; font-weight: 600; color: #166534; margin-top: 0.3rem;">平均评分 ' + avgScore + ' 分</div>' +
+                '<div style="font-size: 0.8rem; color: #6b7280; margin-top: 0.2rem;">等级: ' + levelDesc + '</div>' +
+            '</div>' +
+            '<div style="background: #fefce8; padding: 1rem; border-radius: 8px; border-left: 4px solid #f59e0b;">' +
+                '<div style="font-size: 0.85rem; color: #6b7280;">人均提示词</div>' +
+                '<div style="font-size: 1.1rem; font-weight: 600; color: #92400e; margin-top: 0.3rem;">' + formatNumber(parseInt(avgPrompts)) + ' 条</div>' +
+                '<div style="font-size: 0.8rem; color: #6b7280; margin-top: 0.2rem;">总计 ' + formatNumber(totalPrompts) + ' 条</div>' +
+            '</div>' +
+            '<div style="background: #fdf2f8; padding: 1rem; border-radius: 8px; border-left: 4px solid #ec4899;">' +
+                '<div style="font-size: 0.85rem; color: #6b7280;">Token 消耗大户</div>' +
+                '<div style="font-size: 1.1rem; font-weight: 600; color: #9d174d; margin-top: 0.3rem;">' + escapeHtml(topTokenUser.name) + '</div>' +
+                '<div style="font-size: 0.8rem; color: #6b7280; margin-top: 0.2rem;">共 ' + formatNumber(topTokenUser.summary.total_tokens || 0) + ' Token</div>' +
+            '</div>' +
+        '</div>';
+}
+
+function renderScenarioAnalysis(result) {
+    var el = document.getElementById('multi-scenario-section');
+    if (!el || !result.results || result.results.length === 0) return;
+
+    var scenarios = {};
+    for (var sn in SCENARIO_TOOL_MAP) {
+        scenarios[sn] = { count: 0, people: {} };
+    }
+
+    result.results.forEach(function(person) {
+        var dist = person.analysis.tool_usage_analysis?.tool_distribution || {};
+        for (var tool in dist) {
+            var count = dist[tool];
+            var matched = false;
+            for (var scenario in SCENARIO_TOOL_MAP) {
+                if (SCENARIO_TOOL_MAP[scenario].indexOf(tool) >= 0) {
+                    scenarios[scenario].count += count;
+                    scenarios[scenario].people[person.name] = true;
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched && tool.toLowerCase().indexOf('git') >= 0) {
+                scenarios['Git操作辅助'].count += count;
+                scenarios['Git操作辅助'].people[person.name] = true;
+            }
+        }
+    });
+
+    var totalScenarioCount = 0;
+    for (var s in scenarios) totalScenarioCount += scenarios[s].count;
+
+    var scenarioIcons = {
+        '代码分析与调试': '💻',
+        '问题排查': '🔍',
+        'Git操作辅助': '🔀',
+        '文档撰写': '📝',
+        '开发环境搭建': '🛠️'
+    };
+
+    var rows = '';
+    for (var name in scenarios) {
+        var data = scenarios[name];
+        var pct = totalScenarioCount > 0 ? (data.count / totalScenarioCount * 100).toFixed(1) : '0';
+        var people = Object.keys(data.people);
+        var peopleStr = people.length > 3 ? people.slice(0, 3).join(', ') + ' 等' + people.length + '人' : people.join(', ') || '-';
+        rows += '<tr>' +
+            '<td>' + (scenarioIcons[name] || '') + ' ' + name + '</td>' +
+            '<td>' + peopleStr + '</td>' +
+            '<td style="font-weight: 600;">' + formatNumber(data.count) + '</td>' +
+            '<td>' +
+                '<div style="display: flex; align-items: center; gap: 0.5rem;">' +
+                    '<div style="flex: 1; height: 8px; background: #e5e7eb; border-radius: 4px;">' +
+                        '<div style="width: ' + pct + '%; height: 100%; background: #667eea; border-radius: 4px;"></div>' +
+                    '</div>' +
+                    '<span style="font-size: 0.85rem;">' + pct + '%</span>' +
+                '</div>' +
+            '</td>' +
+        '</tr>';
+    }
+
+    el.innerHTML = '<h3>使用场景分布</h3>' +
+        '<table class="ranking-table" style="margin-top: 0.5rem;">' +
+            '<thead><tr><th>场景</th><th>涉及人员</th><th>工具使用次数</th><th>占比</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody>' +
+        '</table>';
+}
+
+var _chartInstances = [];
+
+function renderCharts(result) {
+    _chartInstances.forEach(function(c) { c.destroy(); });
+    _chartInstances = [];
+
+    if (!result.results || result.results.length === 0) return;
+
+    var names = result.results.map(function(r) { return r.name; });
+    var scores = result.results.map(function(r) { return r.analysis.overall_assessment?.overall_score || 0; });
+    var tokens = result.results.map(function(r) { return r.summary.total_tokens || 0; });
+    var prompts = result.results.map(function(r) { return r.summary.total_prompts || 0; });
+
+    var barColors = ['#667eea', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+
+    function makeChart(canvasId, label, data, options) {
+        var ctx = document.getElementById(canvasId);
+        if (!ctx) return null;
+        var chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: names,
+                datasets: [{
+                    label: label,
+                    data: data,
+                    backgroundColor: data.map(function(v, i) {
+                        if (options.colorByValue) {
+                            return v >= 75 ? '#10b981' : v >= 60 ? '#3b82f6' : v >= 40 ? '#f59e0b' : '#ef4444';
+                        }
+                        return barColors[i % barColors.length];
+                    })
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: options.title || label, font: { size: 14 } }
+                },
+                scales: {
+                    y: { beginAtZero: true, max: options.max || undefined }
+                }
+            }
+        });
+        _chartInstances.push(chart);
+        return chart;
+    }
+
+    makeChart('chart-score', '综合评分', scores, { title: '综合评分对比', colorByValue: true, max: 100 });
+    makeChart('chart-tokens', 'Token', tokens, { title: 'Token 消耗对比' });
+    makeChart('chart-prompts', '提示词', prompts, { title: '提示词数量对比' });
+
+    // Scenario chart (horizontal bar)
+    var scenarios = {};
+    for (var sn in SCENARIO_TOOL_MAP) scenarios[sn] = 0;
+    result.results.forEach(function(person) {
+        var dist = person.analysis.tool_usage_analysis?.tool_distribution || {};
+        for (var tool in dist) {
+            var matched = false;
+            for (var scenario in SCENARIO_TOOL_MAP) {
+                if (SCENARIO_TOOL_MAP[scenario].indexOf(tool) >= 0) {
+                    scenarios[scenario] += dist[tool];
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched && tool.toLowerCase().indexOf('git') >= 0) {
+                scenarios['Git操作辅助'] += dist[tool];
+            }
+        }
+    });
+
+    var scenarioCtx = document.getElementById('chart-scenario');
+    if (scenarioCtx) {
+        var sLabels = Object.keys(scenarios);
+        var sData = sLabels.map(function(k) { return scenarios[k]; });
+        var sChart = new Chart(scenarioCtx, {
+            type: 'bar',
+            data: {
+                labels: sLabels,
+                datasets: [{
+                    label: '工具使用次数',
+                    data: sData,
+                    backgroundColor: barColors.slice(0, sLabels.length)
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: '使用场景分布', font: { size: 14 } }
+                },
+                scales: { x: { beginAtZero: true } }
+            }
+        });
+        _chartInstances.push(sChart);
+    }
+}
+
+function exportMultiMarkdown() {
+    if (!multiAnalysisResults) {
+        alert('请先导入数据并完成分析');
+        return;
+    }
+    var result = multiAnalysisResults;
+    var lines = [];
+
+    lines.push('# 团队 AI 使用分析报告\n');
+
+    var now = new Date();
+    lines.push('**生成时间**: ' + now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + '\n');
+
+    // Overview
+    var totalPeople = result.results.length;
+    var totalReqs = result.results.reduce(function(s, r) { return s + (r.summary.total_requests || 0); }, 0);
+    var totalPrompts = result.results.reduce(function(s, r) { return s + (r.summary.total_prompts || 0); }, 0);
+    var totalTokens = result.results.reduce(function(s, r) { return s + (r.summary.total_tokens || 0); }, 0);
+    var avgScore = totalPeople > 0
+        ? (result.results.reduce(function(s, r) { return s + (r.analysis.overall_assessment?.overall_score || 0); }, 0) / totalPeople).toFixed(1)
+        : '0';
+
+    lines.push('## 概览\n');
+    lines.push('| 指标 | 值 |');
+    lines.push('|------|------|');
+    lines.push('| 总人数 | ' + totalPeople + ' |');
+    lines.push('| 分组数 | ' + Object.keys(result.groups).length + ' |');
+    lines.push('| 总请求数 | ' + formatNumber(totalReqs) + ' |');
+    lines.push('| 总提示词 | ' + formatNumber(totalPrompts) + ' |');
+    lines.push('| 总 Token | ' + formatNumber(totalTokens) + ' |');
+    lines.push('| 平均评分 | ' + avgScore + ' 分 |\n');
+
+    // Insights
+    lines.push('## 分析结论\n');
+    var topUser = result.results.reduce(function(max, r) {
+        return (r.summary.total_requests || 0) > (max.summary.total_requests || 0) ? r : max;
+    }, result.results[0]);
+    var topPercent = totalReqs > 0 ? ((topUser.summary.total_requests / totalReqs) * 100).toFixed(1) : '0';
+    lines.push('- **最活跃用户**: ' + topUser.name + '，贡献了 ' + topPercent + '% 的请求');
+    lines.push('- **整体使用水平**: 平均评分 ' + avgScore + ' 分');
+    lines.push('- **人均提示词**: ' + (totalPeople > 0 ? Math.round(totalPrompts / totalPeople) : 0) + ' 条');
+
+    var topTokenUser = result.results.reduce(function(max, r) {
+        return (r.summary.total_tokens || 0) > (max.summary.total_tokens || 0) ? r : max;
+    }, result.results[0]);
+    lines.push('- **Token 消耗大户**: ' + topTokenUser.name + '，共 ' + formatNumber(topTokenUser.summary.total_tokens || 0) + ' Token\n');
+
+    // Ranking table
+    lines.push('## 综合排名\n');
+    lines.push('| 排名 | 姓名 | 所属组 | 总消息数 | 用户消息数 | Token | 提示词 | 活跃等级 |');
+    lines.push('|------|------|--------|----------|-----------|-------|--------|----------|');
+
+    var sorted = result.results.slice().sort(function(a, b) {
+        return (b.analysis.overall_assessment?.overall_score || 0) - (a.analysis.overall_assessment?.overall_score || 0);
+    });
+    sorted.forEach(function(person, i) {
+        var reqs = person.summary.total_requests || 0;
+        var prompts = person.summary.total_prompts || 0;
+        var tokens = person.summary.total_tokens || 0;
+        var pCount = person.analysis.prompt_quantity_analysis?.total_prompts || prompts;
+        var level = reqs >= 5000 ? '极高' : reqs >= 1000 ? '高' : '中';
+        lines.push('| ' + (i+1) + ' | ' + person.name + ' | ' + person.group + ' | ' + reqs + ' | ' + prompts + ' | ' + tokens + ' | ' + pCount + ' | ' + level + ' |');
+    });
+    lines.push('');
+
+    // Groups
+    lines.push('## 分组汇总\n');
+    lines.push('| 分组 | 人数 | 总消息数 | 平均消息数 | Token | 提示词 | 最高使用者 | 占比 |');
+    lines.push('|------|------|---------|-----------|-------|--------|-----------|------|');
+    var gTotalReqs = Object.values(result.groups).reduce(function(s, g) { return s + g.total_requests; }, 0);
+    Object.entries(result.groups).sort(function(a, b) { return b[1].avg_score - a[1].avg_score; }).forEach(function(entry) {
+        var name = entry[0], g = entry[1];
+        var share = gTotalReqs > 0 ? (g.total_requests / gTotalReqs * 100).toFixed(1) : '0.0';
+        var avg = g.member_count > 0 ? Math.round(g.total_requests / g.member_count) : 0;
+        lines.push('| ' + name + ' | ' + g.member_count + ' | ' + g.total_requests + ' | ' + avg + ' | ' + (g.total_tokens || 0) + ' | ' + (g.total_prompts || 0) + ' | ' + g.top_user + ' | ' + share + '% |');
+    });
+    lines.push('');
+
+    // Scenario
+    lines.push('## 使用场景分布\n');
+    lines.push('| 场景 | 工具使用次数 | 占比 |');
+    lines.push('|------|-------------|------|');
+
+    var scenarios = {};
+    for (var sn in SCENARIO_TOOL_MAP) scenarios[sn] = 0;
+    result.results.forEach(function(person) {
+        var dist = person.analysis.tool_usage_analysis?.tool_distribution || {};
+        for (var tool in dist) {
+            var matched = false;
+            for (var scenario in SCENARIO_TOOL_MAP) {
+                if (SCENARIO_TOOL_MAP[scenario].indexOf(tool) >= 0) {
+                    scenarios[scenario] += dist[tool];
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched && tool.toLowerCase().indexOf('git') >= 0) {
+                scenarios['Git操作辅助'] += dist[tool];
+            }
+        }
+    });
+    var sTotal = 0;
+    for (var k in scenarios) sTotal += scenarios[k];
+    for (var sk in scenarios) {
+        var pct = sTotal > 0 ? (scenarios[sk] / sTotal * 100).toFixed(1) : '0';
+        lines.push('| ' + sk + ' | ' + scenarios[sk] + ' | ' + pct + '% |');
+    }
+    lines.push('');
+
+    // Individual summaries
+    lines.push('## 各成员评分概览\n');
+    sorted.forEach(function(person) {
+        var overall = person.analysis.overall_assessment || {};
+        lines.push('### ' + person.name + ' (' + person.group + ')');
+        lines.push('- 综合评分: ' + (overall.overall_score || 0) + ' 分 (' + (overall.efficiency_level || 'N/A') + ' 级)');
+        lines.push('- 总消息数: ' + (person.summary.total_requests || 0));
+        lines.push('- Token: ' + formatNumber(person.summary.total_tokens || 0));
+        lines.push('- 提示词: ' + (person.summary.total_prompts || 0));
+        if (overall.strengths && overall.strengths.length > 0) {
+            lines.push('- 优势: ' + overall.strengths.map(translateMetric).join(', '));
+        }
+        lines.push('');
+    });
+
+    var md = lines.join('\n');
+    var dateStr = new Date().toISOString().split('T')[0];
+    downloadFile(md, 'team_analysis_' + dateStr + '.md', 'text/markdown');
 }

@@ -783,3 +783,123 @@ class AIUsageAnalyzer:
         if num >= 1000:
             return f"{num/1000:.1f}K"
         return str(num)
+
+    def generate_batch_markdown(self, batch_result: dict) -> str:
+        """Generate Markdown report for multi-person batch analysis"""
+        results = batch_result.get("results", [])
+        groups = batch_result.get("groups", {})
+        if not results:
+            return "# 团队 AI 使用分析报告\n\n暂无数据。"
+
+        lines = ["# 团队 AI 使用分析报告\n"]
+
+        now = datetime.now()
+        lines.append(f"**生成时间**: {now.strftime('%Y-%m-%d')}\n")
+
+        # Overview
+        total_people = len(results)
+        total_reqs = sum(r.get("summary", {}).get("total_requests", 0) for r in results)
+        total_prompts = sum(r.get("summary", {}).get("total_prompts", 0) for r in results)
+        total_tokens = sum(r.get("summary", {}).get("total_tokens", 0) for r in results)
+        avg_score = sum(r.get("analysis", {}).get("overall_assessment", {}).get("overall_score", 0) for r in results) / total_people if total_people > 0 else 0
+
+        lines.append("## 概览\n")
+        lines.append("| 指标 | 值 |")
+        lines.append("|------|------|")
+        lines.append(f"| 总人数 | {total_people} |")
+        lines.append(f"| 分组数 | {len(groups)} |")
+        lines.append(f"| 总请求数 | {self._format_number(total_reqs)} |")
+        lines.append(f"| 总提示词 | {self._format_number(total_prompts)} |")
+        lines.append(f"| 总 Token | {self._format_number(total_tokens)} |")
+        lines.append(f"| 平均评分 | {avg_score:.1f} 分 |\n")
+
+        # Insights
+        lines.append("## 分析结论\n")
+        top_user = max(results, key=lambda r: r.get("summary", {}).get("total_requests", 0))
+        top_reqs = top_user.get("summary", {}).get("total_requests", 0)
+        top_pct = (top_reqs / total_reqs * 100) if total_reqs > 0 else 0
+        lines.append(f"- **最活跃用户**: {top_user.get('name', 'N/A')}，贡献了 {top_pct:.1f}% 的请求")
+        lines.append(f"- **整体使用水平**: 平均评分 {avg_score:.1f} 分")
+        lines.append(f"- **人均提示词**: {int(total_prompts / total_people) if total_people > 0 else 0} 条")
+        top_token_user = max(results, key=lambda r: r.get("summary", {}).get("total_tokens", 0))
+        lines.append(f"- **Token 消耗大户**: {top_token_user.get('name', 'N/A')}，共 {self._format_number(top_token_user.get('summary', {}).get('total_tokens', 0))} Token\n")
+
+        # Ranking
+        lines.append("## 综合排名\n")
+        lines.append("| 排名 | 姓名 | 所属组 | 总消息数 | 用户消息数 | Token | 提示词 | 活跃等级 |")
+        lines.append("|------|------|--------|----------|-----------|-------|--------|----------|")
+        sorted_results = sorted(results, key=lambda r: r.get("analysis", {}).get("overall_assessment", {}).get("overall_score", 0), reverse=True)
+        for i, person in enumerate(sorted_results):
+            s = person.get("summary", {})
+            reqs = s.get("total_requests", 0)
+            pr = s.get("total_prompts", 0)
+            tk = s.get("total_tokens", 0)
+            pq = person.get("analysis", {}).get("prompt_quantity_analysis", {}).get("total_prompts", pr)
+            level = "极高" if reqs >= 5000 else "高" if reqs >= 1000 else "中"
+            lines.append(f"| {i+1} | {person.get('name', '')} | {person.get('group', '')} | {reqs} | {pr} | {tk} | {pq} | {level} |")
+        lines.append("")
+
+        # Groups
+        lines.append("## 分组汇总\n")
+        lines.append("| 分组 | 人数 | 总消息数 | 平均消息数 | Token | 提示词 | 最高使用者 | 占比 |")
+        lines.append("|------|------|---------|-----------|-------|--------|-----------|------|")
+        g_total = sum(g.get("total_requests", 0) for g in groups.values())
+        for name, g in sorted(groups.items(), key=lambda x: x[1].get("avg_score", 0), reverse=True):
+            share = (g.get("total_requests", 0) / g_total * 100) if g_total > 0 else 0
+            avg = int(g.get("total_requests", 0) / g.get("member_count", 1))
+            lines.append(f"| {name} | {g.get('member_count', 0)} | {g.get('total_requests', 0)} | {avg} | {g.get('total_tokens', 0)} | {g.get('total_prompts', 0)} | {g.get('top_user', '')} | {share:.1f}% |")
+        lines.append("")
+
+        # Scenario distribution
+        SCENARIO_MAP = {
+            "代码分析与调试": {"Read", "Write", "Edit", "MultiEdit", "Grep", "Glob", "Agent"},
+            "问题排查": {"Bash", "TaskOutput", "TaskStop"},
+            "Git操作辅助": set(),
+            "文档撰写": {"NotebookEdit"},
+            "开发环境搭建": {"EnterPlanMode", "ExitPlanMode", "EnterWorktree", "ExitWorktree", "Skill", "CronCreate", "CronDelete", "CronList"},
+        }
+        scenario_counts = {k: 0 for k in SCENARIO_MAP}
+        for person in results:
+            dist = person.get("analysis", {}).get("tool_usage_analysis", {}).get("tool_distribution", {})
+            for tool, count in dist.items():
+                matched = False
+                for scenario, tools in SCENARIO_MAP.items():
+                    if tool in tools:
+                        scenario_counts[scenario] += count
+                        matched = True
+                        break
+                if not matched and "git" in tool.lower():
+                    scenario_counts["Git操作辅助"] += count
+
+        s_total = sum(scenario_counts.values())
+        lines.append("## 使用场景分布\n")
+        lines.append("| 场景 | 工具使用次数 | 占比 |")
+        lines.append("|------|-------------|------|")
+        for name, count in scenario_counts.items():
+            pct = (count / s_total * 100) if s_total > 0 else 0
+            lines.append(f"| {name} | {count} | {pct:.1f}% |")
+        lines.append("")
+
+        # Individual summaries
+        lines.append("## 各成员详细报告\n")
+        for person in sorted_results:
+            analysis = person.get("analysis", {})
+            overall = analysis.get("overall_assessment", {})
+            s = person.get("summary", {})
+            lines.append(f"### {person.get('name', 'N/A')} ({person.get('group', 'N/A')})\n")
+            lines.append(f"- 综合评分: {overall.get('overall_score', 0)} 分 ({overall.get('efficiency_level', 'N/A')} 级)")
+            lines.append(f"- 总消息数: {s.get('total_requests', 0)}")
+            lines.append(f"- Token: {self._format_number(s.get('total_tokens', 0))}")
+            lines.append(f"- 提示词: {s.get('total_prompts', 0)}")
+            strengths = overall.get("strengths", [])
+            if strengths:
+                lines.append(f"- 优势: {', '.join(self._translate_metric(m) for m in strengths)}")
+            lines.append("")
+
+            # Full individual report
+            self._data = person.get("export_data", {})
+            lines.append(self._format_as_markdown(analysis))
+            lines.append("---\n")
+
+        lines.append("*本报告由 Sniffly AI 使用分析工具自动生成*")
+        return "\n".join(lines)
