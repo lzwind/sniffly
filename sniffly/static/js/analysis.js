@@ -1626,6 +1626,15 @@ function exportMultiMarkdown() {
     }
     lines.push('');
 
+    // Chart images
+    var chartTitles = ['综合评分对比', 'Token 消耗对比', '提示词数量对比', '使用场景分布'];
+    _chartInstances.forEach(function(chart, i) {
+        if (chart && chart.toBase64Image) {
+            lines.push('### ' + (chartTitles[i] || '图表 ' + (i+1)) + '\n');
+            lines.push('![chart](data:image/png;base64,' + chart.toBase64Image().split(',')[1] + ')\n');
+        }
+    });
+
     // Individual summaries
     lines.push('## 各成员评分概览\n');
     sorted.forEach(function(person) {
