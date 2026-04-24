@@ -4,11 +4,13 @@ Export service for Claude Code and OpenCode usage data
 
 import csv
 import io
-import json
 import logging
 import subprocess
 from datetime import datetime
 from typing import Optional
+
+from sniffly.core.constants import USER_INTERRUPTION_PATTERNS
+from sniffly.utils.pricing import calculate_cost
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +100,9 @@ class ClaudeExportService:
             "sessions": [],
         }
 
+        # Aggregate daily stats while processing projects (avoid double processing)
+        daily_combined = {}
+
         for project in projects:
             log_path = project.get("log_path")
             if not log_path:
@@ -106,36 +111,106 @@ class ClaudeExportService:
             try:
                 # Process logs - returns (messages, statistics)
                 processor = ClaudeLogProcessor(log_path)
-                messages, stats = processor.process_logs()
+                messages, _ = processor.process_logs()
                 if not messages:
                     continue
 
                 # Filter by date if needed
                 if start_date or end_date:
                     messages = self._filter_messages_by_date(messages, start_date, end_date)
-                    # Note: For proper date filtering, we'd need to reprocess
-                    # For now, just filter the messages
 
-                # Extract project data
-                project_data = self._extract_project_data(project, messages, stats, start_date, end_date)
-
-                # Merge into result
-                result["summary"]["total_requests"] += project_data["summary"]["total_requests"]
-                result["summary"]["total_sessions"] += project_data["summary"]["total_sessions"]
-                result["summary"]["total_tokens"]["input"] += project_data["summary"]["total_tokens"]["input"]
-                result["summary"]["total_tokens"]["output"] += project_data["summary"]["total_tokens"]["output"]
-                result["summary"]["total_tokens"]["cache_creation"] += project_data["summary"]["total_tokens"].get("cache_creation", 0)
-                result["summary"]["total_tokens"]["cache_read"] += project_data["summary"]["total_tokens"].get("cache_read", 0)
-                result["summary"]["total_cost"] += project_data["summary"].get("total_cost", 0)
-                result["summary"]["total_prompts"] += project_data["summary"]["total_prompts"]
+                # Extract project data for prompts and sessions only
+                project_data = self._extract_project_data(project, messages)
 
                 result["projects"].append(project_data["project_info"])
                 result["prompts"].extend(project_data["prompts"])
                 result["sessions"].extend(project_data["sessions"])
 
+                # Aggregate daily stats from filtered messages (single pass)
+                for msg in messages:
+                    ts = msg.get("timestamp")
+                    if not ts:
+                        continue
+
+                    date = ts[:10] if isinstance(ts, str) else ts[:10]
+
+                    if date not in daily_combined:
+                        daily_combined[date] = {
+                            "date": date,
+                            "requests": 0,
+                            "sessions": set(),
+                            "prompts": 0,
+                            "tokens": {"input": 0, "output": 0, "cache_creation": 0, "cache_read": 0},
+                            "models_used": {},
+                        }
+
+                    daily_combined[date]["requests"] += 1
+
+                    sid = msg.get("session_id")
+                    if sid:
+                        daily_combined[date]["sessions"].add(sid)
+
+                    # Count prompts (exclude tool result messages)
+                    if msg.get("type") == "user" and not msg.get("has_tool_result", False):
+                        daily_combined[date]["prompts"] += 1
+
+                    # Token usage
+                    tokens = msg.get("tokens", {})
+                    if tokens:
+                        daily_combined[date]["tokens"]["input"] += tokens.get("input", 0) or 0
+                        daily_combined[date]["tokens"]["output"] += tokens.get("output", 0) or 0
+                        daily_combined[date]["tokens"]["cache_creation"] += tokens.get("cache_creation", 0) or 0
+                        daily_combined[date]["tokens"]["cache_read"] += tokens.get("cache_read", 0) or 0
+
+                    # Model tracking for daily cost calculation
+                    model = msg.get("model") or "unknown"
+                    if msg.get("type") == "assistant" and model != "unknown" and model != "N/A":
+                        if model not in daily_combined[date]["models_used"]:
+                            daily_combined[date]["models_used"][model] = {"input": 0, "output": 0, "cache_creation": 0, "cache_read": 0, "count": 0}
+                        daily_combined[date]["models_used"][model]["input"] += tokens.get("input", 0) or 0
+                        daily_combined[date]["models_used"][model]["output"] += tokens.get("output", 0) or 0
+                        daily_combined[date]["models_used"][model]["cache_creation"] += tokens.get("cache_creation", 0) or 0
+                        daily_combined[date]["models_used"][model]["cache_read"] += tokens.get("cache_read", 0) or 0
+                        daily_combined[date]["models_used"][model]["count"] += 1
+
             except Exception as e:
                 logger.error(f"Error processing project {project.get('display_name')}: {e}")
                 continue
+
+        # Calculate summary from daily_combined (single source of truth)
+        all_sessions = set()
+        for date, data in daily_combined.items():
+            result["summary"]["total_requests"] += data["requests"]
+            result["summary"]["total_prompts"] += data["prompts"]
+            result["summary"]["total_tokens"]["input"] += data["tokens"]["input"]
+            result["summary"]["total_tokens"]["output"] += data["tokens"]["output"]
+            result["summary"]["total_tokens"]["cache_creation"] += data["tokens"]["cache_creation"]
+            result["summary"]["total_tokens"]["cache_read"] += data["tokens"]["cache_read"]
+            all_sessions.update(data["sessions"])
+
+            # Calculate cost from model tokens for this day
+            daily_cost = 0.0
+            for model, model_data in data["models_used"].items():
+                if model != "unknown" and model != "N/A":
+                    cost_breakdown = calculate_cost({
+                        "input": model_data.get("input", 0),
+                        "output": model_data.get("output", 0),
+                        "cache_creation": model_data.get("cache_creation", 0),
+                        "cache_read": model_data.get("cache_read", 0),
+                    }, model)
+                    daily_cost += cost_breakdown.get("total_cost", 0)
+
+            result["daily_stats"].append({
+                "date": date,
+                "requests": data["requests"],
+                "sessions": len(data["sessions"]),
+                "prompts": data["prompts"],
+                "tokens": data["tokens"],
+                "cost": daily_cost,
+                "models_used": {k: v.get("count", 0) for k, v in data["models_used"].items()},
+            })
+
+        result["summary"]["total_sessions"] = len(all_sessions)
 
         # Calculate totals
         result["summary"]["total_tokens"]["total"] = (
@@ -143,8 +218,11 @@ class ClaudeExportService:
             result["summary"]["total_tokens"]["output"]
         )
 
-        # Aggregate daily stats from stats data with date filter
-        result["daily_stats"] = self._aggregate_daily_stats_from_stats(projects, start_date, end_date)
+        # Calculate total cost from daily stats
+        result["summary"]["total_cost"] = sum(d.get("cost", 0) for d in result["daily_stats"])
+
+        # Sort daily stats by date
+        result["daily_stats"].sort(key=lambda x: x["date"])
 
         return result
 
@@ -167,38 +245,85 @@ class ClaudeExportService:
 
         return filtered
 
-    def _extract_project_data(self, project: dict, messages: list, stats: dict,
-                              start_date: Optional[str], end_date: Optional[str]) -> dict:
-        """Extract data for a single project"""
-        overview = stats.get("overview", {})
-        sessions_stats = stats.get("sessions", {})
-        user_interactions = stats.get("user_interactions", {})
-        daily_stats = stats.get("daily_stats", {})
+    def _is_interruption_message(self, content: str) -> bool:
+        """Check if a message content indicates a user interruption."""
+        if not content:
+            return False
+        return any(content.startswith(pattern) for pattern in USER_INTERRUPTION_PATTERNS)
 
-        # Get prompts from command details
+    def _extract_project_data(self, project: dict, messages: list) -> dict:
+        """Extract data for a single project. Returns prompts, sessions, and project info."""
+
+        # Get date range from filtered messages
+        timestamps = []
+        for msg in messages:
+            ts = msg.get("timestamp")
+            if ts:
+                timestamps.append(ts[:10] if isinstance(ts, str) else ts)
+
+        if timestamps:
+            first_used = min(timestamps)
+            last_used = max(timestamps)
+        else:
+            first_used = None
+            last_used = None
+
+        # Extract prompts from filtered messages directly
+        # Sort messages by timestamp for proper sequence
+        sorted_messages = sorted(messages, key=lambda x: x.get("timestamp", "") or "")
         prompts = []
-        for cmd in user_interactions.get("command_details", []):
-            ts = cmd.get("timestamp", "")
-            date = ts[:10] if ts else None
 
-            if start_date and date and date < start_date:
+        for i, msg in enumerate(sorted_messages):
+            # Only real user messages (not tool results)
+            if msg.get("type") != "user" or msg.get("has_tool_result", False):
                 continue
-            if end_date and date and date > end_date:
-                continue
+
+            # Get prompt content
+            prompt_content = msg.get("content", "")
+
+            # Get model and tools from interaction data or find from assistant responses
+            model = msg.get("interaction_model", "N/A")
+            tool_count = msg.get("interaction_tool_count", 0)
+            tool_names = []
+
+            # Find assistant responses to get tool names
+            j = i + 1
+            tools_found = []
+            while j < len(sorted_messages):
+                next_msg = sorted_messages[j]
+                if next_msg.get("type") == "user" and not next_msg.get("has_tool_result", False):
+                    break
+                if next_msg.get("type") == "assistant":
+                    if model == "N/A" and next_msg.get("model") and next_msg["model"] != "N/A":
+                        model = next_msg["model"]
+                    if next_msg.get("tools"):
+                        tools_found.extend(next_msg.get("tools", []))
+                j += 1
+
+            # Extract tool names
+            if tools_found:
+                # Use interaction_tool_count to limit if available
+                if tool_count and tool_count > 0:
+                    tool_names = [t.get("name", "Unknown") for t in tools_found[:tool_count]]
+                else:
+                    tool_names = list(set(t.get("name", "Unknown") for t in tools_found))
+
+            # Check if this is an interruption message
+            is_interruption = self._is_interruption_message(prompt_content)
 
             prompts.append({
-                "timestamp": ts,
-                "session_id": cmd.get("session_id"),
+                "timestamp": msg.get("timestamp", ""),
+                "session_id": msg.get("session_id", ""),
                 "project": project.get("display_name"),
-                "prompt": cmd.get("user_message", ""),
-                "model": cmd.get("model"),
-                "tools_used": cmd.get("tool_names", []),
+                "prompt": prompt_content,
+                "model": model if model != "N/A" else None,
+                "tools_used": tool_names,
                 "tokens_used": {
-                    "input": cmd.get("estimated_tokens", 0),
-                    "output": 0,  # Not available per prompt in current structure
+                    "input": len(prompt_content) // 4,  # Rough estimate
+                    "output": 0,
                 },
                 "has_error": False,
-                "is_interruption": cmd.get("is_interruption", False),
+                "is_interruption": is_interruption,
             })
 
         # Get sessions
@@ -229,138 +354,19 @@ class ClaudeExportService:
                 "project": data["project"],
                 "started_at": timestamps[0] if timestamps else None,
                 "ended_at": timestamps[-1] if timestamps else None,
-                "total_prompts": len([m for m in data["messages"] if m.get("type") == "user"]),
+                "total_prompts": len([m for m in data["messages"] if m.get("type") == "user" and not m.get("has_tool_result", False)]),
             })
 
         return {
-            "summary": {
-                "total_requests": overview.get("total_messages", 0),
-                "total_sessions": sessions_stats.get("count", 0),
-                "total_tokens": {
-                    "input": overview.get("total_tokens", {}).get("input", 0),
-                    "output": overview.get("total_tokens", {}).get("output", 0),
-                    "cache_creation": overview.get("total_tokens", {}).get("cache_creation", 0),
-                    "cache_read": overview.get("total_tokens", {}).get("cache_read", 0),
-                },
-                "total_cost": overview.get("total_cost", 0),
-                "total_prompts": user_interactions.get("real_user_messages", 0),
-            },
             "project_info": {
                 "name": project.get("display_name"),
                 "path": project.get("log_path"),
-                "total_requests": overview.get("total_messages", 0),
-                "total_sessions": sessions_stats.get("count", 0),
-                "total_tokens": overview.get("total_tokens", {}),
-                "first_used": overview.get("date_range", {}).get("start"),
-                "last_used": overview.get("date_range", {}).get("end"),
+                "first_used": first_used,
+                "last_used": last_used,
             },
             "prompts": prompts,
             "sessions": sessions,
         }
-
-    def _aggregate_daily_stats(self, prompts: list) -> list:
-        """Aggregate prompts into daily statistics"""
-        daily = {}
-
-        for prompt in prompts:
-            ts = prompt.get("timestamp")
-            if not ts:
-                continue
-
-            date = ts[:10] if isinstance(ts, str) else ts.strftime("%Y-%m-%d")
-
-            if date not in daily:
-                daily[date] = {
-                    "date": date,
-                    "requests": 0,
-                    "sessions": set(),
-                    "prompts": 0,
-                    "tokens": {"input": 0, "output": 0},
-                    "models_used": {},
-                }
-
-            daily[date]["requests"] += 1
-            daily[date]["prompts"] += 1
-            if prompt.get("session_id"):
-                daily[date]["sessions"].add(prompt["session_id"])
-
-            model = prompt.get("model", "unknown")
-            daily[date]["models_used"][model] = daily[date]["models_used"].get(model, 0) + 1
-
-            tokens = prompt.get("tokens_used", {})
-            daily[date]["tokens"]["input"] += tokens.get("input", 0)
-            daily[date]["tokens"]["output"] += tokens.get("output", 0)
-
-        result = []
-        for date in sorted(daily.keys()):
-            data = daily[date]
-            result.append({
-                "date": date,
-                "requests": data["requests"],
-                "sessions": len(data["sessions"]),
-                "prompts": data["prompts"],
-                "tokens": data["tokens"],
-                "models_used": data["models_used"],
-            })
-
-        return result
-
-    def _aggregate_daily_stats_from_stats(self, projects: list,
-                                          start_date: Optional[str] = None,
-                                          end_date: Optional[str] = None) -> list:
-        """Aggregate daily stats from processed stats data"""
-        from sniffly.core.processor import ClaudeLogProcessor
-
-        daily_combined = {}
-
-        for project in projects:
-            log_path = project.get("log_path")
-            if not log_path:
-                continue
-
-            try:
-                processor = ClaudeLogProcessor(log_path)
-                messages, stats = processor.process_logs()
-                daily_stats = stats.get("daily_stats", {})
-
-                for date, data in daily_stats.items():
-                    # Apply date filter
-                    if start_date and date < start_date:
-                        continue
-                    if end_date and date > end_date:
-                        continue
-
-                    if date not in daily_combined:
-                        daily_combined[date] = {
-                            "date": date,
-                            "requests": 0,
-                            "sessions": 0,
-                            "prompts": 0,
-                            "tokens": {"input": 0, "output": 0},
-                            "models_used": {},
-                        }
-
-                    daily_combined[date]["requests"] += data.get("messages", 0)
-                    daily_combined[date]["sessions"] += data.get("sessions", 0)
-                    daily_combined[date]["prompts"] += data.get("user_commands", 0)
-
-                    tokens = data.get("tokens", {})
-                    daily_combined[date]["tokens"]["input"] += tokens.get("input", 0)
-                    daily_combined[date]["tokens"]["output"] += tokens.get("output", 0)
-
-                    # Merge models
-                    cost_data = data.get("cost", {}).get("by_model", {})
-                    for model in cost_data.keys():
-                        daily_combined[date]["models_used"][model] = \
-                            daily_combined[date]["models_used"].get(model, 0) + 1
-
-            except Exception as e:
-                logger.error(f"Error getting daily stats for {project.get('display_name')}: {e}")
-                continue
-
-        # Sort by date
-        result = [daily_combined[date] for date in sorted(daily_combined.keys())]
-        return result
 
 
 class OpenCodeExportService:
