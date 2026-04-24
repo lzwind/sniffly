@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s -X POST http://localhost:8081/api/export-and-analyze/opencode -H 'Content-Type: application/json' -d '{\"start_date\": null, \"end_date\": null}')",
+      "Bash(curl -v -X POST http://localhost:8081/api/export/opencode -H 'Content-Type: application/json' -d '{}')",
+      "Bash(curl -s -X POST http://localhost:8081/api/export/opencode -H 'Content-Type: application/json' -d '{\"start_date\": \"2026-04-01\", \"end_date\": \"2026-04-21\"}')",
+      "Bash(curl -s -X POST http://localhost:8081/api/export-and-analyze/opencode -H 'Content-Type: application/json' -d '{\"start_date\": \"2026-04-01\", \"end_date\": \"2026-04-21\"}')",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(git commit --amend -m ' *)",
+      "Bash(pip uninstall *)",
+      "Bash(pip show *)",
+      "Bash(uv tool *)",
+      "Bash(git commit *)",
+      "Bash(sniffly --help)",
+      "Bash(uv --version)",
+      "Bash(uv build *)",
+      "Bash(uv publish *)",
+      "Bash(pkill -f \"sniffly.server\")",
+      "Bash(sniffly init *)",
+      "Bash(curl -s http://localhost:8081/analysis)",
+      "Bash(kill 32948)",
+      "Bash(pkill -f \"sniffly\")",
+      "Bash(python3 -m sniffly.cli --help)",
+      "Bash(python3 -c \"from sniffly.cli import *; import inspect; print\\(inspect.getsource\\(cli\\)\\)\")",
+      "Bash(python3 -m sniffly.cli init --port 8081 --host 127.0.0.1 --no-browser)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8081/analysis)",
+      "Bash(pip install *)",
+      "Bash(python3 /home/uos/.claude/skills/webapp-testing/scripts/with_server.py --server 'python3 -c \"from sniffly.server import app; import uvicorn; uvicorn.run\\(app, host='\\\\''127.0.0.1'\\\\'', port=8082, log_level='\\\\''warning'\\\\''\\)\"' --port 8082 --timeout 10 -- python3 /tmp/test_multi_analysis_1.py)",
+      "Bash(python3 /home/uos/.claude/skills/webapp-testing/scripts/with_server.py --server 'python3 -c \"from sniffly.server import app; import uvicorn; uvicorn.run\\(app, host='\\\\''127.0.0.1'\\\\'', port=8082, log_level='\\\\''warning'\\\\''\\)\"' --port 8082 --timeout 10 -- python3 /tmp/test_multi_analysis_2.py)",
+      "Bash(python3 /home/uos/.claude/skills/webapp-testing/scripts/with_server.py --server 'python3 -c \"from sniffly.server import app; import uvicorn; uvicorn.run\\(app, host='\\\\''127.0.0.1'\\\\'', port=8082, log_level='\\\\''warning'\\\\''\\)\"' --port 8082 --timeout 10 -- python3 /tmp/test_multi_analysis_3.py)",
+      "Bash(python3 /home/uos/.claude/skills/webapp-testing/scripts/with_server.py --server 'python3 -c \"from sniffly.server import app; import uvicorn; uvicorn.run\\(app, host='\\\\''127.0.0.1'\\\\'', port=8082, log_level='\\\\''warning'\\\\''\\)\"' --port 8082 --timeout 10 -- python3 /tmp/test_multi_analysis_4.py)",
+      "Bash(python3 /home/uos/.claude/skills/webapp-testing/scripts/with_server.py --server 'python3 -c \"from sniffly.server import app; import uvicorn; uvicorn.run\\(app, host='\\\\''127.0.0.1'\\\\'', port=8082, log_level='\\\\''warning'\\\\''\\)\"' --port 8082 --timeout 10 -- python3 /tmp/test_multi_analysis_5.py)",
+      "Bash(python3 /home/uos/.claude/skills/webapp-testing/scripts/with_server.py --server 'python3 -c \"from sniffly.server import app; import uvicorn; uvicorn.run\\(app, host='\\\\''127.0.0.1'\\\\'', port=8082, log_level='\\\\''warning'\\\\''\\)\"' --port 8082 --timeout 10 -- python3 /tmp/test_multi_analysis_6.py)",
+      "Bash(python3 /home/uos/.claude/skills/webapp-testing/scripts/with_server.py --server 'python3 -c \"from sniffly.server import app; import uvicorn; uvicorn.run\\(app, host='\\\\''127.0.0.1'\\\\'', port=8082, log_level='\\\\''warning'\\\\''\\)\"' --port 8082 --timeout 10 -- python3 /tmp/test_multi_analysis_7.py)",
+      "Bash(python3 /home/uos/.claude/skills/webapp-testing/scripts/with_server.py --server 'python3 -c \"from sniffly.server import app; import uvicorn; uvicorn.run\\(app, host='\\\\''127.0.0.1'\\\\'', port=8082, log_level='\\\\''warning'\\\\''\\)\"' --port 8082 --timeout 10 -- python3 /tmp/test_multi_analysis_8.py)",
+      "Bash(python3 /home/uos/.claude/skills/webapp-testing/scripts/with_server.py --server 'python3 -c \"from sniffly.server import app; import uvicorn; uvicorn.run\\(app, host='\\\\''127.0.0.1'\\\\'', port=8082, log_level='\\\\''warning'\\\\''\\)\"' --port 8082 --timeout 10 -- python3 /tmp/test_multi_analysis_9.py)",
+      "Bash(python3 /home/uos/.claude/skills/webapp-testing/scripts/with_server.py --server 'python3 -c \"from sniffly.server import app; import uvicorn; uvicorn.run\\(app, host='\\\\''127.0.0.1'\\\\'', port=8082, log_level='\\\\''warning'\\\\''\\)\"' --port 8082 --timeout 10 -- python3 /tmp/test_multi_analysis_10.py)",
+      "Bash(python /tmp/test_auth.py)",
+      "Bash(lsof -ti:8081)",
+      "Bash(python /tmp/test_new_features.py)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}

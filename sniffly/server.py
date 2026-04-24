@@ -1025,7 +1025,7 @@ async def get_recent_projects():
         return JSONResponse({"projects": [], "error": str(e)})
 
 
-# Comprehensive projects endpoint for global stats
+# Get all Claude log directories with optimized listing
 @app.get("/api/projects")
 async def get_projects(
     include_stats: bool = False, sort_by: str = "last_modified", limit: int | None = None, offset: int = 0
@@ -1045,58 +1045,53 @@ async def get_projects(
     from sniffly.utils.log_finder import get_all_projects_with_metadata
 
     try:
-        # Get all projects with metadata
+        # Get all projects with metadata (fast - no file reading)
         projects = get_all_projects_with_metadata()
 
-        # Add cache status and URL slug for each project
+        # Add cache status and URL slug for each project (fast - just check memory)
         for project in projects:
             project["in_cache"] = memory_cache.get(project["log_path"]) is not None
-            project["url_slug"] = project["dir_name"]  # Use dir name for URLs
+            project["url_slug"] = project["dir_name"]
 
         if include_stats:
-            # Add statistics from cache for cached projects
+            # Add stats ONLY from already cached projects - no processing
             for project in projects:
-                if project["in_cache"]:
-                    cache_result = memory_cache.get(project["log_path"])
-                    if cache_result:
-                        _, stats = cache_result
-                        # Extract stats from nested structure
-                        overview = stats.get("overview", {})
-                        total_tokens = overview.get("total_tokens", {})
-                        user_interactions = stats.get("user_interactions", {})
+                cache_result = memory_cache.get(project["log_path"])
+                if cache_result:
+                    _, stats = cache_result
+                    overview = stats.get("overview", {})
+                    total_tokens = overview.get("total_tokens", {})
+                    user_interactions = stats.get("user_interactions", {})
 
-                        project["stats"] = {
-                            "total_input_tokens": total_tokens.get("input", 0),
-                            "total_output_tokens": total_tokens.get("output", 0),
-                            "total_cache_read": total_tokens.get("cache_read", 0),
-                            "total_cache_write": total_tokens.get("cache_creation", 0),
-                            "total_commands": user_interactions.get("user_commands_analyzed", 0),
-                            "avg_tokens_per_command": user_interactions.get("avg_tokens_per_command", 0),
-                            "avg_steps_per_command": user_interactions.get("avg_steps_per_command", 0),
-                            "compact_summary_count": overview.get("message_types", {}).get("compact_summary", 0),
-                            "first_message_date": overview.get("date_range", {}).get("start"),
-                            "last_message_date": overview.get("date_range", {}).get("end"),
-                            "total_cost": overview.get("total_cost", 0),
-                        }
-                        logger.debug(f"Added stats for cached project {project['dir_name']}: {project['stats']}")
-                    else:
-                        # Cache was evicted between status check and retrieval
-                        project["in_cache"] = False
+                    project["stats"] = {
+                        "total_sessions": stats.get("sessions", {}).get("count", 0),
+                        "total_commands": user_interactions.get("user_commands_analyzed", 0),
+                        "total_input_tokens": total_tokens.get("input", 0),
+                        "total_output_tokens": total_tokens.get("output", 0),
+                        "total_cache_read": total_tokens.get("cache_read", 0),
+                        "total_cache_write": total_tokens.get("cache_creation", 0),
+                        "avg_tokens_per_command": user_interactions.get("avg_tokens_per_command", 0),
+                        "avg_steps_per_command": user_interactions.get("avg_steps_per_command", 0),
+                        "compact_summary_count": overview.get("message_types", {}).get("compact_summary", 0),
+                        "first_message_date": overview.get("date_range", {}).get("start"),
+                        "last_message_date": overview.get("date_range", {}).get("end"),
+                        "total_cost": overview.get("total_cost", 0),
+                    }
                 else:
-                    # Try file cache
-                    cached_stats = cache_service.get_cached_stats(project["log_path"])
+                    # Try file cache (fast read - no change detection)
+                    cached_stats = cache_service.get_cached_stats_fast(project["log_path"])
                     if cached_stats:
-                        # Extract stats from nested structure (same as memory cache)
                         overview = cached_stats.get("overview", {})
                         total_tokens = overview.get("total_tokens", {})
                         user_interactions = cached_stats.get("user_interactions", {})
 
                         project["stats"] = {
+                            "total_sessions": cached_stats.get("sessions", {}).get("count", 0),
+                            "total_commands": user_interactions.get("user_commands_analyzed", 0),
                             "total_input_tokens": total_tokens.get("input", 0),
                             "total_output_tokens": total_tokens.get("output", 0),
                             "total_cache_read": total_tokens.get("cache_read", 0),
                             "total_cache_write": total_tokens.get("cache_creation", 0),
-                            "total_commands": user_interactions.get("user_commands_analyzed", 0),
                             "avg_tokens_per_command": user_interactions.get("avg_tokens_per_command", 0),
                             "avg_steps_per_command": user_interactions.get("avg_steps_per_command", 0),
                             "compact_summary_count": overview.get("message_types", {}).get("compact_summary", 0),
@@ -1104,8 +1099,9 @@ async def get_projects(
                             "last_message_date": overview.get("date_range", {}).get("end"),
                             "total_cost": overview.get("total_cost", 0),
                         }
+                        project["in_cache"] = True
                     else:
-                        project["stats"] = None  # Will need to load in background
+                        project["stats"] = None  # Will be loaded in background
 
         # Sort projects
         if sort_by == "last_modified":

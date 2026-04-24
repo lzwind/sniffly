@@ -28,6 +28,7 @@ class GlobalStatsAggregator:
     async def get_global_stats(self, projects: list[dict]) -> dict:
         """
         Aggregate statistics across all projects.
+        FAST: Only uses already cached data, no processing.
 
         Args:
             projects: List of project dictionaries from get_all_projects_with_metadata()
@@ -209,31 +210,26 @@ class GlobalStatsAggregator:
     async def _get_project_stats(self, project: dict) -> dict | None:
         """
         Get statistics for a single project.
+        FAST: Only checks cache, never processes.
 
         Args:
             project: Project dictionary with log_path
 
         Returns:
-            Statistics dictionary or None if not available
+            Statistics dictionary or None if not cached
         """
         log_path = project["log_path"]
 
-        # Try memory cache first
+        # Try memory cache first (fastest)
         if project.get("in_cache"):
             cache_result = self.memory_cache.get(log_path)
             if cache_result:
                 _, stats = cache_result
                 return stats
 
-        # Try file cache
-        stats = self.file_cache.get_cached_stats(log_path)
-        if stats:
-            return stats
-
-        # Stats not available - would need to process
-        # For now, return None to indicate unavailable
-        # In production, could queue for background processing
-        return None
+        # Try file cache (fast - just reads JSON, no change detection)
+        stats = self.file_cache.get_cached_stats_fast(log_path)
+        return stats  # May be None if not cached
 
     async def process_uncached_projects(self, projects: list[dict], limit: int = 5) -> int:
         """

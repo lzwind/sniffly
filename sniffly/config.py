@@ -20,7 +20,7 @@ DEFAULTS = {
     "messages_initial_load": 500,
     "enable_memory_monitor": False,
     "enable_background_processing": True,
-    "cache_warm_on_startup": 3,
+    "cache_warm_on_startup": 0,  # Disabled by default - let background processor handle it
     "log_level": "INFO",
     "share_base_url": "https://sniffly.dev",
     "share_api_url": "https://sniffly.dev",

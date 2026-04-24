@@ -147,6 +147,28 @@ class LocalCacheService:
 
         return None
 
+    def get_cached_stats_fast(self, log_path: str) -> dict[str, Any] | None:
+        """Get cached statistics WITHOUT checking for changes.
+
+        Use this for fast loading when you don't need to verify freshness.
+        This is much faster than get_cached_stats() for overview pages.
+
+        Args:
+            log_path: Log directory path
+
+        Returns:
+            Cached stats or None if not cached
+        """
+        stats_path = self._get_cache_path(log_path, "stats.json")
+        if stats_path.exists():
+            try:
+                with open(stats_path) as f:
+                    return json.load(f)
+            except Exception:
+                return None
+
+        return None
+
     def get_cached_messages(self, log_path: str) -> list[dict[str, Any]] | None:
         """Get cached messages if available and valid"""
         if self.has_changes(log_path):
