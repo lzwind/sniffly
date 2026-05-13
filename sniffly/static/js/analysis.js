@@ -321,6 +321,35 @@ function renderAnalysisViewInto(container, data) {
     container.appendChild(createSection(renderToolUsageSection(analysis.tool_usage_analysis)));
     container.appendChild(createSection(renderPromptQualitySection(analysis.prompt_quality_analysis)));
     container.appendChild(createSection(renderPromptQuantitySection(analysis.prompt_quantity_analysis)));
+
+    // Trellis Usage
+    var trellis = data.export_data?.trellis || data.trellis || null;
+    if (trellis && trellis.total_invocations > 0) {
+        var topCmds = Object.entries(trellis.top_commands || {}).map(([cmd, cnt]) => cmd + ' (' + cnt + ')').join(', ');
+        container.appendChild(createSection(`
+            <div class="metric-section">
+                <h3>Trellis 工作流使用</h3>
+                <div class="metric-grid">
+                    <div class="metric-item">
+                        <div class="metric-label">总调用次数</div>
+                        <div class="metric-value">${trellis.total_invocations}</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">使用命令数</div>
+                        <div class="metric-value">${trellis.unique_commands} 种</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">涉及项目数</div>
+                        <div class="metric-value">${trellis.projects_with_trellis}</div>
+                    </div>
+                    ${topCmds ? `<div class="metric-item">
+                        <div class="metric-label">常用命令</div>
+                        <div class="metric-value" style="font-size: 0.9rem;">${escapeHtml(topCmds)}</div>
+                    </div>` : ''}
+                </div>
+            </div>
+        `));
+    }
 }
 
 function createSection(html) {
@@ -1090,6 +1119,7 @@ function renderMultiResults(result) {
                             <th>会话数</th>
                             <th>Token</th>
                             <th>提示词</th>
+                            <th>Trellis</th>
                             <th>活跃等级</th>
                         </tr>
                     </thead>
@@ -1169,6 +1199,8 @@ function renderRankingTable() {
         else if (totalReqs >= 1000) activityText = '高';
 
         var sessionCount = person.analysis.task_efficiency_analysis?.total_sessions || person.summary.total_sessions || 0;
+        var trellisCount = person.export_data?.trellis?.total_invocations || 0;
+        var trellisStr = trellisCount > 0 ? trellisCount : '-';
         const safeName = escapeHtml(person.name).replace(/'/g, "\\'");
         return '<tr onclick="showIndividualDetail(\'' + safeName + '\')" title="点击查看详细分析">' +
             '<td style="text-align: center;">' + rankDisplay + '</td>' +
@@ -1179,6 +1211,7 @@ function renderRankingTable() {
             '<td>' + sessionCount + '</td>' +
             '<td>' + formatNumber(totalTokens) + '</td>' +
             '<td>' + promptCount + '</td>' +
+            '<td>' + trellisStr + '</td>' +
             '<td><span class="level-badge">' + activityText + '</span></td>' +
             '</tr>';
     }).join('');
@@ -1569,8 +1602,8 @@ function exportMultiMarkdown() {
 
     // Ranking table
     lines.push('## 综合排名\n');
-    lines.push('| 排名 | 姓名 | 所属组 | 总消息数 | 用户消息数 | 会话数 | Token | 提示词 | 活跃等级 |');
-    lines.push('|------|------|--------|----------|-----------|--------|-------|--------|----------|');
+    lines.push('| 排名 | 姓名 | 所属组 | 总消息数 | 用户消息数 | 会话数 | Token | 提示词 | Trellis | 活跃等级 |');
+    lines.push('|------|------|--------|----------|-----------|--------|-------|--------|---------|----------|');
 
     var sorted = result.results.slice().sort(function(a, b) {
         return (b.analysis.overall_assessment?.overall_score || 0) - (a.analysis.overall_assessment?.overall_score || 0);
@@ -1582,7 +1615,9 @@ function exportMultiMarkdown() {
         var pCount = person.analysis.prompt_quantity_analysis?.total_prompts || prompts;
         var sessions = person.analysis.task_efficiency_analysis?.total_sessions || 0;
         var level = reqs >= 5000 ? '极高' : reqs >= 1000 ? '高' : '中';
-        lines.push('| ' + (i+1) + ' | ' + person.name + ' | ' + person.group + ' | ' + reqs + ' | ' + prompts + ' | ' + sessions + ' | ' + tokens + ' | ' + pCount + ' | ' + level + ' |');
+        var trellis = person.export_data?.trellis?.total_invocations || 0;
+        var trellisVal = trellis > 0 ? trellis : '-';
+        lines.push('| ' + (i+1) + ' | ' + person.name + ' | ' + person.group + ' | ' + reqs + ' | ' + prompts + ' | ' + sessions + ' | ' + tokens + ' | ' + pCount + ' | ' + trellisVal + ' | ' + level + ' |');
     });
     lines.push('');
 
