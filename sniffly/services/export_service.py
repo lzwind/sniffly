@@ -5,7 +5,9 @@ Export service for Claude Code and OpenCode usage data
 import csv
 import io
 import logging
+import re
 import subprocess
+from collections import defaultdict
 from datetime import datetime
 from typing import Optional
 
@@ -13,6 +15,8 @@ from sniffly.core.constants import USER_INTERRUPTION_PATTERNS
 from sniffly.utils.pricing import calculate_cost
 
 logger = logging.getLogger(__name__)
+
+TRELLIS_CMD_PATTERN = re.compile(r'/trellis:([a-z][-a-z]*)')
 
 
 def get_git_user_info() -> dict:
@@ -224,7 +228,36 @@ class ClaudeExportService:
         # Sort daily stats by date
         result["daily_stats"].sort(key=lambda x: x["date"])
 
+        # Scan for trellis command usage
+        result["trellis"] = self._scan_trellis_commands(result["prompts"])
+
         return result
+
+    def _scan_trellis_commands(self, prompts: list) -> dict:
+        """Scan user prompts for /trellis:* command usage."""
+        total_invocations = 0
+        command_counts = defaultdict(int)
+        projects_with_trellis = set()
+
+        for p in prompts:
+            content = p.get("prompt", "")
+            if not content:
+                continue
+            cmds = TRELLIS_CMD_PATTERN.findall(content)
+            if cmds:
+                for cmd in cmds:
+                    command_counts[cmd] += 1
+                    total_invocations += 1
+                if p.get("project"):
+                    projects_with_trellis.add(p["project"])
+
+        return {
+            "total_invocations": total_invocations,
+            "command_counts": dict(command_counts),
+            "top_commands": dict(sorted(command_counts.items(), key=lambda x: -x[1])[:5]),
+            "unique_commands": len(command_counts),
+            "projects_with_trellis": len(projects_with_trellis),
+        }
 
     def _filter_messages_by_date(self, messages: list, start_date: Optional[str], end_date: Optional[str]) -> list:
         """Filter messages by date range"""

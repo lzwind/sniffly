@@ -756,6 +756,21 @@ class AIUsageAnalyzer:
                 )
             lines.append("")
 
+        # Trellis Usage
+        trellis = self._data.get("trellis", {})
+        if trellis and trellis.get("total_invocations", 0) > 0:
+            lines.append("## Trellis 工作流使用\n")
+            lines.append("| 指标 | 值 |")
+            lines.append("|------|------|")
+            lines.append(f"| 总调用次数 | {trellis['total_invocations']} |")
+            lines.append(f"| 使用命令数 | {trellis['unique_commands']} 种 |")
+            lines.append(f"| 涉及项目数 | {trellis['projects_with_trellis']} |")
+            top = trellis.get("top_commands", {})
+            if top:
+                top_str = ", ".join(f"{cmd}({cnt})" for cmd, cnt in top.items())
+                lines.append(f"| 常用命令 | {top_str} |")
+            lines.append("")
+
         # Footer
         lines.append("---")
         lines.append("")
@@ -826,8 +841,8 @@ class AIUsageAnalyzer:
 
         # Ranking
         lines.append("## 综合排名\n")
-        lines.append("| 排名 | 姓名 | 所属组 | 总消息数 | 用户消息数 | 会话数 | Token | 提示词 | 活跃等级 |")
-        lines.append("|------|------|--------|----------|-----------|--------|-------|--------|----------|")
+        lines.append("| 排名 | 姓名 | 所属组 | 总消息数 | 用户消息数 | 会话数 | Token | 提示词 | Trellis | 活跃等级 |")
+        lines.append("|------|------|--------|----------|-----------|--------|-------|--------|---------|----------|")
         sorted_results = sorted(results, key=lambda r: r.get("analysis", {}).get("overall_assessment", {}).get("overall_score", 0), reverse=True)
         for i, person in enumerate(sorted_results):
             s = person.get("summary", {})
@@ -837,7 +852,10 @@ class AIUsageAnalyzer:
             pq = person.get("analysis", {}).get("prompt_quantity_analysis", {}).get("total_prompts", pr)
             sessions = person.get("analysis", {}).get("task_efficiency_analysis", {}).get("total_sessions", 0)
             level = "极高" if reqs >= 5000 else "高" if reqs >= 1000 else "中"
-            lines.append(f"| {i+1} | {person.get('name', '')} | {person.get('group', '')} | {reqs} | {pr} | {sessions} | {tk} | {pq} | {level} |")
+            trellis = person.get("export_data", {}).get("trellis", {})
+            trellis_count = trellis.get("total_invocations", 0)
+            trellis_str = str(trellis_count) if trellis_count > 0 else "-"
+            lines.append(f"| {i+1} | {person.get('name', '')} | {person.get('group', '')} | {reqs} | {pr} | {sessions} | {tk} | {pq} | {trellis_str} | {level} |")
         lines.append("")
 
         # Groups
