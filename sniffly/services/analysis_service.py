@@ -3,7 +3,8 @@ AI Usage Analysis Service for generating efficiency reports
 """
 
 import logging
-from collections import Counter
+import re
+from collections import Counter, defaultdict
 from datetime import datetime
 from typing import Optional
 
@@ -346,6 +347,35 @@ class AIUsageAnalyzer:
             "tool_usage_level": "diverse" if unique_tools >= 5 else "moderate" if unique_tools >= 2 else "focused"
         }
 
+    _TRELLIS_CMD_PATTERN = re.compile(r'/trellis:([a-z][-a-z]*)')
+
+    def _scan_trellis_commands(self, prompts: list) -> dict:
+        """Scan user prompts for /trellis:* command usage (backfill for old exports)."""
+        total_invocations = 0
+        command_counts = defaultdict(int)
+        projects_with_trellis = set()
+
+        for p in prompts:
+            content = p.get("prompt", "") if isinstance(p, dict) else ""
+            if not content:
+                continue
+            cmds = self._TRELLIS_CMD_PATTERN.findall(content)
+            if cmds:
+                for cmd in cmds:
+                    command_counts[cmd] += 1
+                    total_invocations += 1
+                project = p.get("project")
+                if project:
+                    projects_with_trellis.add(project)
+
+        return {
+            "total_invocations": total_invocations,
+            "command_counts": dict(command_counts),
+            "top_commands": dict(sorted(command_counts.items(), key=lambda x: -x[1])[:5]),
+            "unique_commands": len(command_counts),
+            "projects_with_trellis": len(projects_with_trellis),
+        }
+
     def analyze_code_changes(self, data: dict) -> dict:
         """Analyze code change correlation"""
         sessions = data.get("sessions", [])
@@ -524,6 +554,10 @@ class AIUsageAnalyzer:
 
     def generate_report(self, data: dict) -> dict:
         """Generate comprehensive analysis report"""
+        # Backfill trellis stats for legacy export data that lacks the field
+        if not data.get("trellis") and data.get("source") == "claude":
+            data["trellis"] = self._scan_trellis_commands(data.get("prompts", []))
+
         activity = self.analyze_activity(data)
         task_efficiency = self.analyze_task_efficiency(data)
         token_efficiency = self.analyze_token_efficiency(data)

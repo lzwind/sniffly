@@ -824,6 +824,10 @@ async function importAndAnalyze(input) {
         if (!response.ok) throw new Error(`分析失败: HTTP ${response.status}`);
 
         const analysis = await response.json();
+        // Backfill trellis into export_data if returned by API (for old exports)
+        if (analysis.trellis && !exportData.trellis) {
+            exportData.trellis = analysis.trellis;
+        }
         // Wrap in same structure as loadSourceAnalysis
         currentAnalysis = { analysis: analysis, export_data: exportData };
         renderAnalysisView(currentAnalysis);
@@ -974,6 +978,11 @@ async function handleSingleFileImport(input) {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const analysis = await response.json();
+
+        // Backfill trellis into export_data if returned by API (for old exports)
+        if (analysis.trellis && !exportData.trellis) {
+            exportData.trellis = analysis.trellis;
+        }
 
         multiAnalysisResults = {
             results: [{

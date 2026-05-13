@@ -1412,6 +1412,9 @@ async def analyze_usage_data(request: Request, data: dict):
         analyzer = AIUsageAnalyzer()
 
         report = analyzer.generate_report(data)
+        # Attach trellis stats if backfilled by generate_report
+        if data.get("trellis"):
+            report["trellis"] = data["trellis"]
         return JSONResponse(report)
     except Exception as e:
         import traceback
