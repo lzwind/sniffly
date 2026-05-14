@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from . import __version__
+
 # Default configuration values
 DEFAULTS = {
     "port": 8081,
@@ -141,6 +143,11 @@ class Config:
         config_data.pop(key, None)
         self._save_config_file(config_data)
 
+    _MIGRATIONS: dict[str, tuple[str, Any]] = {
+        # (from_version, key, new_default_value)
+        "0.3.0": ("auto_browser", True),
+    }
+
     def _load_config_file(self) -> dict[str, Any]:
         """Load configuration from file.
 
@@ -151,9 +158,21 @@ class Config:
             return {}
 
         try:
-            return json.loads(self.config_file.read_text())
+            data = json.loads(self.config_file.read_text())
         except (OSError, json.JSONDecodeError):
             return {}
+
+        file_version = data.get("version", "")
+        migrated = False
+        for ver, (key, value) in self._MIGRATIONS.items():
+            if file_version == ver and key in data and data[key] != value:
+                data[key] = value
+                migrated = True
+        if migrated:
+            data["version"] = __version__
+            self._save_config_file(data)
+
+        return data
 
     def _save_config_file(self, config_data: dict[str, Any]):
         """Save configuration to file.
