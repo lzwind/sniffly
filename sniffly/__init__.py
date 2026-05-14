@@ -1,11 +1,5 @@
 """Sniffly - Claude Code Analytics"""
 
-import importlib.metadata
-
-try:
-    __version__ = importlib.metadata.version("sniffly-iceleaf916")
-except importlib.metadata.PackageNotFoundError:
-    # Fallback for development mode
-    __version__ = "0.2.2"
+from .__version__ import __version__
 
 __all__ = ["__version__"]

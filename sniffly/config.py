@@ -143,11 +143,6 @@ class Config:
         config_data.pop(key, None)
         self._save_config_file(config_data)
 
-    _MIGRATIONS: dict[str, tuple[str, Any]] = {
-        # (from_version, key, new_default_value)
-        "0.3.0": ("auto_browser", True),
-    }
-
     def _load_config_file(self) -> dict[str, Any]:
         """Load configuration from file.
 
@@ -162,13 +157,10 @@ class Config:
         except (OSError, json.JSONDecodeError):
             return {}
 
-        file_version = data.get("version", "")
-        migrated = False
-        for ver, (key, value) in self._MIGRATIONS.items():
-            if file_version == ver and key in data and data[key] != value:
-                data[key] = value
-                migrated = True
-        if migrated:
+        # Migration: old versions wrote auto_browser=false as default value.
+        # If config version doesn't match current package version, reset it to True.
+        if data.get("version") != __version__ and data.get("auto_browser") is False:
+            data["auto_browser"] = True
             data["version"] = __version__
             self._save_config_file(data)
 
