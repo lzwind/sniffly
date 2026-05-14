@@ -100,12 +100,12 @@ def init(port, host, no_browser, clear_cache):
         url = f"http://{host}:{port}"
         # Delay browser opening slightly to ensure server is ready
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
-        click.echo(f"\n✨✨✨ Sniffly dashboard opened at {url}✨✨✨\n")
+        click.echo(f"\n✨ Sniffly dashboard opened at {url}\n")
     else:
-        click.echo(f"\n✨✨✨ Sniffly running at http://{host}:{port}✨✨✨\n")
-    click.echo("🔥🌐 \tOpen your browser to see the dashboard\n")
-    click.echo("🔥🛰️ \tIf your logs are on a remote server, use port forwarding to open the dashboard on your computer.\n")
-
+        url = f"http://{host}:{port}"
+        click.echo(f"\n✨ Sniffly running at {url}\n")
+    click.echo(url)
+    click.echo("\nIf your logs are on a remote server, use port forwarding to open the dashboard on your computer.")
     click.echo("Press Ctrl+C to stop the server")
 
     try:
